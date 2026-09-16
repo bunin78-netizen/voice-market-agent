@@ -40,7 +40,7 @@ LLM (DeepSeek / OpenRouter) + tool calling
 2. **AssemblyAI API key** — бесплатный тир, [assemblyai.com/dashboard](https://www.assemblyai.com/dashboard)
 3. LLM key — DeepSeek или OpenRouter
 4. `ffmpeg` в PATH (для конвертации голосовых)
-5. Опционально: `ELEVENLABS_API_KEY` + CLI `sag` — для голосового ответа
+5. Опционально: `ELEVENLABS_API_KEY` — для голосового ответа (REST напрямую; CLI `sag` используется как резерв)
 
 ```bash
 cp .env.example .env        # заполнить ключи

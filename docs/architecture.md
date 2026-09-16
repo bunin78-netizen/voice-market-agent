@@ -18,7 +18,7 @@ flowchart TD
     AG -->|финальный текст| B
     B -->|текст| U
     B -->|график PNG| U
-    B -->|голос mp3| TT[src/tts.py<br/>ElevenLabs / sag]
+    B -->|голос mp3| TT[src/tts.py<br/>ElevenLabs REST → sag]
     TT --> U
 ```
 
