@@ -26,25 +26,42 @@ from src.tts import VOICE_IDS  # noqa: E402
 
 # Реплики закадрового голоса: (момент в видео, секунда, текст)
 CUES: list[dict] = [
-    {"at": "00:04", "text": "Рыночную сводку обычно смотрят глазами: терминал, график, индикаторы."},
-    {"at": "00:12", "text": "А если руки заняты — за рулём или в работе — эти десять минут просто теряются."},
+    {"at": "00:04", "text": "Рыночную сводку обычно смотрят глазами: терминал, график, индикаторы.",
+     "en": "Market updates usually mean staring at a terminal, a chart, a few indicators."},
+    {"at": "00:12", "text": "А если руки заняты — за рулём или в работе — эти десять минут просто теряются.",
+     "en": "But when your hands are busy — driving or working — those ten minutes are simply lost."},
     {"at": "00:22", "text": "Я собрал агента, которому не нужен интерфейс. Только голос: отправляю "
-                           "голосовое сообщение в Telegram — дальше он делает всё сам."},
-    {"at": "00:32", "text": "Смотрите."},
+                           "голосовое сообщение в Telegram — дальше он делает всё сам.",
+     "en": "So I built an agent that needs no interface — just your voice. I send a voice "
+           "message to Telegram and it does the rest."},
+    {"at": "00:32", "text": "Смотрите.",
+     "en": "Let me show you."},
     {"at": "00:45", "text": "Первое — распознавание. AssemblyAI превращает запись в текст, "
-                           "устойчиво к терминам вроде RSI и Боллинджера."},
-    {"at": "00:54", "text": "Теперь модель решает, какие данные ей нужны: цена, RSI, скользящая средняя, "
-                           "линии Боллинджера."},
+                           "устойчиво к терминам вроде RSI и Боллинджера.",
+     "en": "First, speech recognition. AssemblyAI turns the recording into text, reliably "
+           "handling terms like RSI and Bollinger Bands."},
+    {"at": "00:54", "text": "Дальше модель сама решает, какие данные ей нужны: цена, RSI, "
+                           "скользящая средняя, линии Боллинджера.",
+     "en": "Then the model decides which data it needs: price, RSI, moving average, "
+           "Bollinger Bands."},
     {"at": "01:06", "text": "Ответ приходит голосом — слушать можно, не глядя в экран. "
-                           "И текстом, чтобы можно было перечитать."},
+                           "И текстом, чтобы можно было перечитать.",
+     "en": "The answer comes back as voice — listen without looking at the screen — "
+           "and as text you can re-read."},
     {"at": "01:21", "text": "Теперь про график. Я не подсказываю, какой инструмент вызвать — "
-                           "это решает сама модель."},
+                           "это решает сама модель.",
+     "en": "Now a chart. I am not telling it which tool to call — the model decides."},
     {"at": "01:30", "text": "Свечи, SMA20, линии Боллинджера и панель RSI. "
-                           "График построен прямо в момент запроса."},
-    {"at": "01:46", "text": "Стек: AssemblyAI, языковая модель с вызовами инструментов, Telegram."},
-    {"at": "01:53", "text": "И ещё один инструмент — индекс страха и жадности рынка."},
-    {"at": "02:07", "text": "Каждый ответ — голосом, цифры текстом."},
-    {"at": "02:20", "text": "Код открыт, ссылка в описании."},
+                           "График построен прямо в момент запроса.",
+     "en": "Candles, SMA20, Bollinger Bands and an RSI panel — built on demand."},
+    {"at": "01:55", "text": "Под капотом — AssemblyAI для речи, языковая модель с вызовами "
+                           "инструментов и Telegram как интерфейс.",
+     "en": "Under the hood: AssemblyAI for speech, an LLM with tool calling, "
+           "and Telegram as the interface."},
+    {"at": "02:10", "text": "И ещё один инструмент — индекс страха и жадности рынка.",
+     "en": "One more tool: the market Fear and Greed index."},
+    {"at": "02:45", "text": "Код открыт, ссылка в описании. Спасибо.",
+     "en": "The code is open source — link in the description. Thank you."},
 ]
 
 OUT_DIR = ROOT / "tmp" / "narration"
@@ -107,7 +124,7 @@ def main() -> int:
         start = seconds(cue["at"])
         end = start + dur
         plan.append({"file": dest.name, "start": start, "duration": round(dur, 2),
-                     "text": cue["text"]})
+                     "text": cue["text"], "en": cue.get("en", "")})
         print(f"  {cue['at']}  {dur:5.1f}c  →  {end//60:02.0f}:{end%60:04.1f}  {cue['text'][:52]}…")
 
     (OUT_DIR / "plan.json").write_text(

@@ -83,19 +83,13 @@ def align_cues(cues: list[dict], events: list[tuple[str, float]],
         anchors[8] = ins[1] + 0.6
     if len(cues) > 8 and len(outs) > 1:
         anchors[9] = outs[1] + 0.6
+    # «под капотом» — в свободное окно перед третьим вопросом
     if len(cues) > 9 and len(ins) > 2:
-        anchors[10] = ins[2] + 0.6
-    if len(cues) > 10 and len(outs) > 2:
-        anchors[11] = outs[2] + 0.6
-    # строку про стек ставим в свободное окно перед третьим вопросом
-    if len(cues) > 10 and len(ins) > 2:
         anchors[10] = max(ins[2] - cues[9]["duration"] - 1.0, 0.0)
-    if len(cues) > 11 and len(ins) > 2:
+    if len(cues) > 10 and len(ins) > 2:
         anchors[11] = ins[2] + 0.6
-    if len(cues) > 12 and len(outs) > 2:
+    if len(cues) > 11 and len(outs) > 2:
         anchors[12] = outs[2] + 0.6
-    if len(cues) > 13 and outs:
-        anchors[13] = outs[-1] + 0.6
 
     prev_end = 0.0
     for i, cue in enumerate(cues, start=1):
@@ -153,6 +147,29 @@ def fit_to_duration(cues: list[dict], video_dur: float, min_gap: float = 0.4,
         cue["start"] = round(max(cue["start"] * factor, prev_end + min_gap), 2)
         prev_end = cue["start"] + cue["duration"]
     return cues
+
+
+def write_srt(cues: list[dict], en_texts: list[str], out: Path) -> Path | None:
+    """Субтитры с точными таймингами из собранного видео."""
+    if not en_texts:
+        return None
+    lines, idx = [], 0
+    for i, cue in enumerate(cues):
+        en = en_texts[i] if i < len(en_texts) else ""
+        if not en:
+            continue
+        idx += 1
+        def ts(t: float) -> str:
+            h, rem = divmod(max(t, 0.0), 3600)
+            m, s = divmod(rem, 60)
+            return f"{int(h):02d}:{int(m):02d}:{s:06.3f}".replace(".", ",")
+        start, end = cue["start"], cue["start"] + cue["duration"]
+        lines.append(f"{idx}\n{ts(start)} --> {ts(end)}\n{en}\n")
+    if not lines:
+        return None
+    path = out.with_suffix(".en.srt")
+    path.write_text("\n".join(lines), encoding="utf-8")
+    return path
 
 
 def has_filter(name: str) -> bool:
@@ -347,7 +364,10 @@ def main() -> int:
         return 1
 
     tmp_out.replace(out)  # атомарная подмена: плеер не увидит недописанный файл
+    srt = write_srt(cues, [c.get("en", "") for c in plan.get("cues", [])], out)
     print(f"✅ готово: {out}")
+    if srt:
+        print(f"   субтитры с точными таймингами: {srt}")
     print(f"   длительность {duration(out):.1f}c, размер {out.stat().st_size // 1024 // 1024} МБ")
     print(f"   проверь: ffplay -autoexit \"{out}\"")
     return 0
