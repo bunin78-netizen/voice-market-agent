@@ -303,8 +303,9 @@ def main() -> int:
         for f, off in bot_voice:
             print(f"   {int(off)//60:02d}:{off%60:05.2f}  {f.name}")
 
-    if args.events_file and events_override and zero is not None:
-        cues = align_cues(cues, events_override, zero, duration(video))
+    if args.events_file and events_override:
+        # в файле событий время уже относительно старта записи — zero не вычитаем
+        cues = align_cues(cues, events_override, 0.0, duration(video))
         print("🎯 реплики привязаны к событиям (из файла):")
         for c in cues:
             print(f"   {int(c['start'])//60:02d}:{c['start']%60:05.2f}  {c['text'][:48]}…")
