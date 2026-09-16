@@ -34,6 +34,7 @@ def synthesize(text: str, voice: str | None = None,
     out = Path(out) if out else config.TMP_DIR / ("reply.ogg" if as_voice else "reply.mp3")
     mp3 = out.with_suffix(".mp3")
     cmd = ["sag", "speak", "--output", str(mp3), "--no-play",
+           "--model-id", config.TTS_MODEL,
            "-v", voice or config.TTS_VOICE, text]
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0 or not mp3.exists():

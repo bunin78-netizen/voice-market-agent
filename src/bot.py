@@ -11,6 +11,10 @@ from . import audio, config, stt, tts
 from .agent import answer
 
 logging.basicConfig(format="%(asctime)s %(levelname)s %(name)s: %(message)s", level=logging.INFO)
+# httpx/PTB логируют полные URL запросов, а в них — токен бота. Гасим, чтобы токен не попадал в лог.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("telegram.ext").setLevel(logging.WARNING)
+logging.getLogger("apscheduler").setLevel(logging.WARNING)
 log = logging.getLogger("voice-market-agent")
 
 HELP = (

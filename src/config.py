@@ -28,6 +28,7 @@ ELEVENLABS_API_KEY = env("ELEVENLABS_API_KEY")
 LLM_MODEL = env("LLM_MODEL", "deepseek-chat")
 TTS_VOICE = env("TTS_VOICE", "Eric")
 TTS_ENABLED = env("TTS_ENABLED", "1") not in ("0", "false", "no")
+TTS_MODEL = env("TTS_MODEL", "eleven_flash_v2_5")
 STT_MODE = env("STT_MODE", "assemblyai")
 DEFAULT_INTERVAL = env("DEFAULT_INTERVAL", "1h")
 
