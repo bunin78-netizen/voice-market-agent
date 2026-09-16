@@ -1,0 +1,65 @@
+1
+00:00:04,000 --> 00:00:12,000
+Market updates usually mean staring at a terminal,
+a chart, a few indicators.
+
+2
+00:00:12,000 --> 00:00:22,000
+But when your hands are busy — driving or working —
+those ten minutes are simply lost.
+
+3
+00:00:22,000 --> 00:00:32,000
+So I built an agent that only needs your voice.
+I send a voice message to Telegram, and it does the rest.
+
+4
+00:00:32,000 --> 00:00:35,000
+Let me show you.
+
+5
+00:00:36,000 --> 00:00:44,000
+[voice message]
+"What is Bitcoin doing on the 4-hour chart?"
+
+6
+00:00:45,000 --> 00:00:54,000
+First, speech recognition:
+AssemblyAI transcribes the note and detects the language automatically.
+
+7
+00:00:54,000 --> 00:01:06,000
+Then the model decides which data it needs:
+price, RSI, moving average, Bollinger Bands.
+
+8
+00:01:06,000 --> 00:01:20,000
+The answer comes back as voice — you can listen
+without looking at the screen — and as text with the details.
+
+9
+00:01:21,000 --> 00:01:30,000
+Now a chart. I am not telling it which tool to call —
+the model decides that by itself.
+
+10
+00:01:30,000 --> 00:01:45,000
+Candles, SMA20, Bollinger Bands and an RSI panel —
+built on demand, in the moment.
+
+11
+00:01:46,000 --> 00:01:53,000
+One more tool: the market Fear and Greed index.
+
+12
+00:01:53,000 --> 00:02:06,000
+Also answered by voice, also with the numbers in writing.
+
+13
+00:02:07,000 --> 00:02:20,000
+A spoken question, a spoken answer, plus a chart.
+The stack: AssemblyAI, LLM tool calling, Telegram.
+
+14
+00:02:20,000 --> 00:02:30,000
+The code is open source — link in the description. Thank you.

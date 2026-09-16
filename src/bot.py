@@ -11,7 +11,7 @@ from telegram.error import NetworkError, RetryAfter, TimedOut
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from . import audio, config, stt, tts
-from .agent import answer
+from .agent import answer, split_spoken
 
 logging.basicConfig(format="%(asctime)s %(levelname)s %(name)s: %(message)s", level=logging.INFO)
 # httpx/PTB логируют полные URL запросов, а в них — токен бота. Гасим, чтобы токен не попадал в лог.
@@ -76,7 +76,11 @@ async def _handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE, question:
         [{"role": "user", "content": question}, {"role": "assistant", "content": result.text}])
     HISTORY[chat_id] = HISTORY[chat_id][-8:]
 
-    await with_retry(update.message.reply_text, result.text)
+    spoken, details = split_spoken(result.text)
+    if details:
+        await with_retry(update.message.reply_text, f"{spoken}\n\n{details}")
+    else:
+        await with_retry(update.message.reply_text, spoken)
 
     for chart in result.charts:
         try:
@@ -88,7 +92,7 @@ async def _handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE, question:
     if reply_as_voice and config.TTS_ENABLED:
         await safe_action(ctx, chat_id, ChatAction.RECORD_VOICE)
         try:
-            voice_file = tts.synthesize(result.text, as_voice=True)
+            voice_file = tts.synthesize(spoken or result.text, as_voice=True)
             with open(voice_file, "rb") as fh:
                 await with_retry(update.message.reply_voice, fh)
         except tts.TTSError as e:
