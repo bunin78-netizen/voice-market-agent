@@ -250,6 +250,7 @@ def main() -> int:
     ap.add_argument("--subs", default="", help="SRT для вшивания в кадр (необязательно)")
     ap.add_argument("--crop-top", type=int, default=0, help="срезать N пикселей сверху (мигающая полоса)")
     ap.add_argument("--intro-card", default="", help="PNG-заставка в начале видео")
+    ap.add_argument("--outro-card", default="", help="PNG-финальный кадр, если речи длиннее видео")
     ap.add_argument("--intro-seconds", type=float, default=5.0, help="сколько показывать заставку")
     ap.add_argument("--voice-before", type=float, default=0.0,
                     help="брать из архива только ответы, начавшиеся до этой секунды")
@@ -332,17 +333,23 @@ def main() -> int:
     cues = avoid_overlap(cues, spoken_spans)
     fitted = fit_to_duration(cues, vid_dur)
     cues = avoid_overlap(cues, spoken_spans)
-    speech_end = max((c["start"] + c["duration"] for c in cues), default=0.0)
+    # учитываем и закадровый текст, и голос бота: что из них длиннее — то и задаёт конец
+    narration_end = max((c["start"] + c["duration"] for c in cues), default=0.0)
+    voice_end = max((e for _, e in spoken_spans), default=0.0)
+    speech_end = max(narration_end, voice_end)
     overhang = max(0.0, speech_end + 0.5 - (vid_dur or 0.0))
-    if overhang > 0.4:
-        print(f"🧊 видео короче речи на {overhang:.1f}c — последний кадр замрёт на это время")
+    pad = overhang if overhang > 0.4 else 0.0
+    crop = f"crop=iw:ih-{args.crop_top}:0:{args.crop_top}," if args.crop_top else ""
+    if crop:
+        print(f"✂️  срезаю верхние {args.crop_top}px")
+    outro_img = Path(args.outro_card).expanduser() if args.outro_card else None
+    use_outro = bool(outro_img and outro_img.exists() and pad > 0.4)
     print("🎙  голос бота:", ", ".join(f"{int(s)//60:02d}:{s%60:04.1f}–{int(e)//60:02d}:{e%60:04.1f}"
                                        for s, e in spoken_spans) or "нет")
-    speech_end = max(c["start"] + c["duration"] for c in cues)
-    print(f"видео: {vid_dur:.1f}c | речь заканчивается на {speech_end:.1f}c")
-    if vid_dur and speech_end > vid_dur:
-        print(f"⚠️  речь длиннее видео на {speech_end - vid_dur:.1f}c — "
-              f"последние реплики обрежутся (или подрежь их в plan.json)")
+    print(f"видео: {vid_dur:.1f}c | текст до {narration_end:.1f}c | голос бота до {voice_end:.1f}c")
+    if pad:
+        print(f"🧊 не хватает {pad:.1f}c — "
+              + ("покажу финальный кадр" if use_outro else "последний кадр замрёт"))
 
     if not shutil.which("ffmpeg"):
         print("❌ ffmpeg не найден")
@@ -354,6 +361,11 @@ def main() -> int:
         cmd += ["-i", str(narr_dir / cue["file"])]
     for f, _ in bot_voice:
         cmd += ["-i", str(f)]
+
+    outro_idx = None
+    if use_outro:
+        outro_idx = 1 + len(cues) + len(bot_voice)
+        cmd += ["-loop", "1", "-t", f"{pad:.3f}", "-i", str(outro_img)]
 
     subs_path = Path(args.subs).expanduser() if args.subs else None
     burn = bool(subs_path) and has_filter("subtitles")
@@ -382,11 +394,15 @@ def main() -> int:
         mix_inputs.append(f"[bot{k}]")
     filters.append("".join(mix_inputs) + f"amix=inputs={len(mix_inputs)}:normalize=0:dropout_transition=0[aout]")
 
-    pad = overhang if overhang > 0.4 else 0.0
-    crop = f"crop=iw:ih-{args.crop_top}:0:{args.crop_top}," if args.crop_top else ""
-    if crop:
-        print(f"✂️  срезаю верхние {args.crop_top}px")
-    if not burn and pad:
+    if use_outro and outro_idx is not None:
+        filters.append(f"[0:v]{crop}format=yuv420p,fps=25[vmain]")
+        filters.append(f"[{outro_idx}:v]{crop}fps=25,format=yuv420p,setpts=PTS-STARTPTS[vcard]")
+        filters.append("[vmain][vcard]concat=n=2:v=1:a=0[vpad]")
+        print(f"🎬 в конце — финальный кадр на {pad:.1f}c")
+        cmd += ["-filter_complex", ";".join(filters),
+                "-map", "[vpad]", "-map", "[aout]",
+                "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p"]
+    elif not burn and pad:
         filters.append(f"[0:v]{crop}tpad=stop_mode=clone:stop_duration={pad:.3f}[vpad]")
         cmd += ["-filter_complex", ";".join(filters),
                 "-map", "[vpad]", "-map", "[aout]",
