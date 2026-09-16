@@ -90,14 +90,24 @@ def _sag(text: str, voice: str | None, out: Path) -> Path:
     return out
 
 
+def shorten_for_voice(text: str, limit: int) -> str:
+    """Оставляем целые предложения: длинную озвучку слушать неудобно."""
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    for sep in (". ", "! ", "? ", "… "):
+        pos = cut.rfind(sep)
+        if pos > limit * 0.5:
+            return cut[:pos + 1].strip()
+    return cut.rsplit(" ", 1)[0].strip() + "…"
+
 def synthesize(text: str, voice: str | None = None,
                out: str | Path | None = None, as_voice: bool = False) -> Path:
     """Озвучивает текст. as_voice=True → OGG/Opus для голосового сообщения Telegram."""
     text = (text or "").strip()
     if not text:
         raise TTSError("пустой текст")
-    if len(text) > 900:
-        text = text[:900].rsplit(" ", 1)[0] + "…"
+    text = shorten_for_voice(text, config.TTS_MAX_CHARS)
 
     out = Path(out) if out else config.TMP_DIR / ("reply.ogg" if as_voice else "reply.mp3")
     mp3 = out.with_suffix(".mp3")
