@@ -87,6 +87,10 @@ python scripts/smoke_test.py        # прогон всего пайплайна
 | `src/agent.py` | цикл «вопрос → инструменты → ответ» |
 | `src/bot.py` | Telegram-бот: голос/текст → ответ голосом/текстом |
 | `scripts/smoke_test.py` | оффлайн-проверка пайплайна |
+| `scripts/demo_preflight.sh` | проверка готовности перед записью демо |
+| `scripts/record_demo.sh` | запись демо (экран + микрофон) в MP4 |
+| `docs/demo-script.md` | сценарий демо для записи с компьютера |
+| `docs/demo-iphone.md` | сценарий записи на iPhone |
 
 ## Лицензия
 
