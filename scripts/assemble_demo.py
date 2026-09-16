@@ -320,10 +320,10 @@ def main() -> int:
     cmd += ["-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-shortest"]
     if subs_idx is not None:
         cmd += ["-map", f"{subs_idx}:0", "-c:s", "mov_text", "-metadata:s:s:0", "language=eng"]
-        # дорожка субтитров бывает длиннее видео — подрезаем, иначе часть плееров ругается
         if vid_dur:
             cmd += ["-t", f"{vid_dur:.3f}"]
-    cmd += [str(out)]
+    tmp_out = out.with_name(out.stem + ".part" + out.suffix)
+    cmd += [str(tmp_out)]
 
     print("…сборка")
     proc = subprocess.run(cmd, capture_output=True, text=True)
@@ -331,6 +331,7 @@ def main() -> int:
         print("❌ ffmpeg упал:\n", proc.stderr.strip()[:800])
         return 1
 
+    tmp_out.replace(out)  # атомарная подмена: плеер не увидит недописанный файл
     print(f"✅ готово: {out}")
     print(f"   длительность {duration(out):.1f}c, размер {out.stat().st_size // 1024 // 1024} МБ")
     print(f"   проверь: ffplay -autoexit \"{out}\"")
