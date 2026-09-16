@@ -55,7 +55,7 @@ async def _handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE, question:
     if reply_as_voice and config.TTS_ENABLED:
         await ctx.bot.send_chat_action(chat_id, ChatAction.RECORD_VOICE)
         try:
-            voice_file = tts.synthesize(result.text)
+            voice_file = tts.synthesize(result.text, as_voice=True)
             with open(voice_file, "rb") as fh:
                 await update.message.reply_voice(fh)
         except tts.TTSError as e:
