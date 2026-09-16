@@ -1,58 +1,81 @@
 #!/bin/bash
-# Запись демо-видео: экран (ffmpeg/x11grab) + микрофон (parec) → один MP4.
+# Запись демо-видео: экран (ffmpeg/x11grab) + звук (parec) → один MP4.
 #
 # Запуск:            bash scripts/record_demo.sh
-# Остановка:         Ctrl+C (файл соберётся автоматически)
+# Остановка:         Ctrl+C (один раз! файл соберётся сам)
 # Проверка за 6 с:   DURATION=6 bash scripts/record_demo.sh
 #
 # Переопределяемое:
-#   AREA=1920x1080+1360+0   область экрана (X Y — левый верхний угол)
-#   MIC=<имя источника>     микрофон (см. `pactl list short sources` / `pw-cli ls Source`)
-#   OUT=/путь/файл.mp4      куда писать
+#   AREA=1920x1080+1360+0   область экрана (ширинаxвысота+X+Y)
+#   MIC=<источник>          что писать: микрофон или монитор звуковой карты
+#   OUT=/путь/файл.mp4      куда положить результат
 #   FPS=25                  частота кадров
+#
+# Почему видео пишется в MKV, а не сразу в MP4: у MP4 индекс (moov) пишется в конце,
+# и если процесс убить — файл остаётся нечитаемым. MKV переживает обрыв.
 
 set -u
 cd "$(dirname "$0")/.." || exit 1
 
 AREA="${AREA:-1920x1080+1360+0}"
-MIC="${MIC:-alsa_input.pci-0000_00_1f.3.analog-stereo}"
+MIC="${MIC:-alsa_output.pci-0000_00_1f.3.analog-stereo.monitor}"
 FPS="${FPS:-25}"
 DURATION="${DURATION:-}"
 OUT_DIR="${OUT_DIR:-$HOME/Videos}"
 mkdir -p "$OUT_DIR"
 STAMP=$(date +%Y%m%d-%H%M%S)
 OUT="${OUT:-$OUT_DIR/voice-market-demo-$STAMP.mp4}"
-TMP_DIR=$(mktemp -d)
-VIDEO="$TMP_DIR/video.mp4"
-AUDIO="$TMP_DIR/audio.wav"
+WORK="${WORK:-$OUT_DIR/.work-$STAMP}"
+mkdir -p "$WORK"
+VIDEO="$WORK/screen.mkv"
+AUDIO="$WORK/sound.wav"
 
-for tool in ffmpeg parec; do
+for tool in ffmpeg parec ffprobe; do
   command -v "$tool" >/dev/null || { echo "❌ не найден $tool"; exit 1; }
 done
 
-cleanup() {
-  # гасим дочерние процессы захвата
-  [ -n "${VPID:-}" ] && kill "$VPID" 2>/dev/null
-  [ -n "${APID:-}" ] && kill "$APID" 2>/dev/null
+STOPPING=0
+VPID=""; APID=""
+
+shutdown() {
+  # повторные Ctrl+C игнорируем — иначе убьём сведение
+  if [ "$STOPPING" = "1" ]; then return; fi
+  STOPPING=1
+  echo
+  echo "⏹ останавливаю захват…"
+  # SIGINT даёт ffmpeg дописать контейнер корректно
+  [ -n "$APID" ] && kill -INT "$APID" 2>/dev/null
+  [ -n "$VPID" ] && kill -INT "$VPID" 2>/dev/null
+  local waited=0
+  while [ -n "$VPID" ] && kill -0 "$VPID" 2>/dev/null && [ "$waited" -lt 15 ]; do
+    sleep 1; waited=$((waited + 1))
+  done
+  [ -n "$VPID" ] && kill -0 "$VPID" 2>/dev/null && kill "$VPID" 2>/dev/null
   wait "$VPID" 2>/dev/null
   wait "$APID" 2>/dev/null
 }
-trap cleanup EXIT INT TERM
+trap shutdown INT
 
 echo "🎬 область: $AREA @ ${FPS}fps"
-echo "🎙 микрофон: $MIC"
+echo "🎙 звук:    $MIC"
 echo "💾 результат: $OUT"
 echo
 echo "Запись начнётся через 5 секунд — переключись на окно Telegram."
 sleep 5
-echo "▶ ЗАПИСЬ (Ctrl+C — стоп)"
+echo "▶ ЗАПИСЬ. Говорить не нужно. Ctrl+C — стоп (один раз!)."
 
 TIME_FLAG=()
 [ -n "$DURATION" ] && TIME_FLAG=(-t "$DURATION")
 
-ffmpeg -hide_banner -loglevel error \
-  -f x11grab -framerate "$FPS" -video_size "${AREA%%+*}" -i ":0.0+$(echo "$AREA" | cut -d+ -f2),$(echo "$AREA" | cut -d+ -f3)" \
-  -c:v libx264 -preset ultrafast -crf 26 -pix_fmt yuv420p "${TIME_FLAG[@]}" "$VIDEO" &
+W="${AREA%%+*}"
+REST="${AREA#*+}"
+X="${REST%%+*}"
+Y="${REST##*+}"
+
+ffmpeg -hide_banner -loglevel error -stats_period 1 \
+  -f x11grab -framerate "$FPS" -video_size "$W" -i ":0.0+$X,$Y" \
+  -c:v libx264 -preset ultrafast -crf 26 -pix_fmt yuv420p \
+  "${TIME_FLAG[@]}" "$VIDEO" &
 VPID=$!
 
 parec --device="$MIC" --format=s16le --rate=48000 --channels=1 --file-format=wav "$AUDIO" &
@@ -60,29 +83,57 @@ APID=$!
 
 if [ -n "$DURATION" ]; then
   wait "$VPID" 2>/dev/null
+  shutdown >/dev/null 2>&1
+  trap - INT
 else
-  echo "   пишу… нажми Ctrl+C, когда закончишь"
-  wait "$VPID" 2>/dev/null
+  while kill -0 "$VPID" 2>/dev/null; do sleep 1; done
 fi
-cleanup >/dev/null 2>&1
-trap - EXIT INT TERM
 
-echo
-echo "⏹ запись остановлена, собираю файл…"
-ffmpeg -hide_banner -loglevel error -y \
-  -i "$VIDEO" -i "$AUDIO" \
-  -c:v copy -c:a aac -b:a 160k -shortest "$OUT" || {
-    echo "⚠️ звук не подхватился — сохраняю только видео"
-    cp "$VIDEO" "$OUT"
-  }
+sleep 1
+trap - INT
 
-rm -rf "$TMP_DIR"
-if [ -f "$OUT" ]; then
-  SIZE=$(du -h "$OUT" | cut -f1)
-  DUR=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$OUT" 2>/dev/null | cut -d. -f1)
-  echo "✅ готово: $OUT ($SIZE, ${DUR}s)"
-  echo "   проверь звук:  ffplay -autoexit \"$OUT\""
+# --- проверки перед сведением
+VID_OK=1
+ffprobe -v error -select_streams v -show_entries stream=width -of csv=p=0 "$VIDEO" >/dev/null 2>&1 || VID_OK=0
+AUD_OK=1
+[ -s "$AUDIO" ] && ffprobe -v error -show_entries format=duration -of csv=p=0 "$AUDIO" >/dev/null 2>&1 || AUD_OK=0
+
+if [ "$VID_OK" = "0" ]; then
+  echo "❌ видео не записалось. Что было:"
+  echo "   • окно Telegram на другом мониторе? см. docs/demo-voiceover.md (AREA=...)"
+  echo "   • сессия X11 недоступна (проверь echo \$DISPLAY)"
+  echo "   черновик файлов оставлен в $WORK"
+  exit 1
+fi
+
+VDUR=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$VIDEO" 2>/dev/null | cut -d. -f1)
+echo "⏹ захват остановлен: видео ${VDUR}s, звук $([ "$AUD_OK" = "1" ] && echo есть || echo НЕТ)"
+
+if [ "$AUD_OK" = "1" ]; then
+  LEVEL=$(ffmpeg -hide_banner -i "$AUDIO" -af volumedetect -f null - 2>&1 \
+    | grep max_volume | sed 's/.*max_volume: //; s/ dB//')
+  if [ -n "$LEVEL" ] && awk "BEGIN{exit !($LEVEL < -70)}"; then
+    echo "⚠️  звук в записи почти тишина (максимум $LEVEL dB)."
+    echo "   проверь, что звук системы идёт на тот же выход: wpctl status  (строка со звёздочкой — активный)"
+    echo "   или задай MIC=<другой monitor> bash scripts/record_demo.sh"
+  else
+    echo "   уровень звука: максимум ${LEVEL:-?} dB"
+  fi
+  ffmpeg -hide_banner -loglevel error -y -i "$VIDEO" -i "$AUDIO" \
+    -c:v copy -c:a aac -b:a 160k -shortest "$OUT"
 else
-  echo "❌ файл не создан"
+  echo "⚠️  звука нет — сохраняю только видео"
+  ffmpeg -hide_banner -loglevel error -y -i "$VIDEO" -c:v copy "$OUT"
+fi
+
+if ffprobe -v error -show_entries format=duration -of csv=p=0 "$OUT" >/dev/null 2>&1 && [ -s "$OUT" ]; then
+  SIZE=$(du -h "$OUT" | cut -f1)
+  DUR=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$OUT" | cut -d. -f1)
+  echo "✅ готово: $OUT ($SIZE, ${DUR}s)"
+  echo "   посмотреть: ffplay -autoexit \"$OUT\""
+  rm -rf "$WORK"
+else
+  echo "❌ сведение не удалось. Исходники целы: $WORK"
+  echo "   соберём вручную: ffmpeg -i \"$VIDEO\" -i \"$AUDIO\" -c:v copy -c:a aac out.mp4"
   exit 1
 fi
