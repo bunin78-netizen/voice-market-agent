@@ -421,6 +421,13 @@ def main() -> int:
         mix_inputs.append(f"[bot{k}]")
     filters.append("".join(mix_inputs) + f"amix=inputs={len(mix_inputs)}:normalize=0:dropout_transition=0[aout]")
 
+    # если после последней реплики осталось «немое» видео — подрезаем его
+    keep_video = (vid_dur or 0.0)
+    content_end = max(narration_end, voice_end if spoken_spans else 0.0)
+    if not use_outro and content_end and keep_video > content_end + 2.0:
+        keep_video = round(content_end + 1.5, 2)
+        print(f"✂️  хвост без звука подрезан: видео {vid_dur:.1f}c → {keep_video:.1f}c")
+
     if use_outro and outro_idx is not None:
         filters.append(f"[0:v]{crop}format=yuv420p,fps=25[vmain]")
         filters.append(f"[{outro_idx}:v]{crop}fps=25,format=yuv420p,setpts=PTS-STARTPTS[vcard]")
@@ -443,11 +450,13 @@ def main() -> int:
     elif not pad:
         if subs_path:
             print("ℹ️  фильтра subtitles в этой сборке ffmpeg нет — субтитры пойдут дорожкой mov_text")
-        if crop:
-            filters.append(f"[0:v]{crop}trim=end={vid_dur:.3f},setpts=PTS-STARTPTS[vcrop]")
+        end_at = min(vid_dur or 0.0, keep_video)
+        if crop or end_at < (vid_dur or 0.0) - 0.5:
+            filters.append(f"[0:v]{crop}trim=end={end_at:.3f},setpts=PTS-STARTPTS[vcrop]")
             cmd += ["-filter_complex", ";".join(filters),
                     "-map", "[vcrop]", "-map", "[aout]",
-                    "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p"]
+                    "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
+                    "-t", f"{end_at:.3f}"]   # режем и звук, иначе в конце остаётся «немой» хвост
         else:
             cmd += ["-filter_complex", ";".join(filters),
                     "-map", "0:v", "-map", "[aout]", "-c:v", "copy"]
