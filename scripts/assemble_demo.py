@@ -204,7 +204,7 @@ def main() -> int:
         cmd += ["-filter_complex", ";".join(filters),
                 "-map", "0:v", "-map", "[aout]", "-c:v", "copy"]
 
-    cmd += ["-c:a", "aac", "-b:a", "192k", "-shortest", str(out)]
+    cmd += ["-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-shortest", str(out)]
 
     print("…сборка")
     proc = subprocess.run(cmd, capture_output=True, text=True)

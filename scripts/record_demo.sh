@@ -40,6 +40,7 @@ if [ "$AREA" = "auto" ]; then
 fi
 MIC="${MIC:-alsa_output.pci-0000_00_1f.3.analog-stereo.monitor}"
 FPS="${FPS:-25}"
+CRF="${CRF:-20}"   # ниже = чётче текст (18-20 для интерфейсов)
 DURATION="${DURATION:-}"
 OUT_DIR="${OUT_DIR:-$HOME/Videos}"
 mkdir -p "$OUT_DIR"
@@ -95,7 +96,7 @@ Y="${REST##*+}"
 
 ffmpeg -hide_banner -loglevel error -stats_period 1 \
   -f x11grab -framerate "$FPS" -video_size "$W" -i ":0.0+$X,$Y" \
-  -c:v libx264 -preset ultrafast -crf 26 -pix_fmt yuv420p \
+  -c:v libx264 -preset veryfast -crf "$CRF" -pix_fmt yuv420p \
   "${TIME_FLAG[@]}" "$VIDEO" &
 VPID=$!
 
@@ -141,10 +142,10 @@ if [ "$AUD_OK" = "1" ]; then
     echo "   уровень звука: максимум ${LEVEL:-?} dB"
   fi
   ffmpeg -hide_banner -loglevel error -y -i "$VIDEO" -i "$AUDIO" \
-    -c:v copy -c:a aac -b:a 160k -shortest "$OUT"
+    -c:v copy -c:a aac -b:a 160k -movflags +faststart -shortest "$OUT"
 else
   echo "⚠️  звука нет — сохраняю только видео"
-  ffmpeg -hide_banner -loglevel error -y -i "$VIDEO" -c:v copy "$OUT"
+  ffmpeg -hide_banner -loglevel error -y -i "$VIDEO" -c:v copy -movflags +faststart "$OUT"
 fi
 
 if ffprobe -v error -show_entries format=duration -of csv=p=0 "$OUT" >/dev/null 2>&1 && [ -s "$OUT" ]; then
