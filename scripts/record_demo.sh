@@ -63,6 +63,7 @@ echo
 echo "Запись начнётся через 5 секунд — переключись на окно Telegram."
 sleep 5
 echo "▶ ЗАПИСЬ. Говорить не нужно. Ctrl+C — стоп (один раз!)."
+date +%s.%N > "$OUT.start" 2>/dev/null || true
 
 TIME_FLAG=()
 [ -n "$DURATION" ] && TIME_FLAG=(-t "$DURATION")

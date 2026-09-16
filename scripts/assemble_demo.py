@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -19,6 +20,84 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_NARRATION = ROOT / "tmp" / "narration"
+
+
+# ---------------------------------------------------------------- выравнивание по логу
+LOG_TS = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),(\d{3}) INFO .*EVENT (voice_in|reply_out)")
+
+
+def parse_events(log_path: Path) -> list[tuple[str, float]]:
+    """Возвращает [(тип, epoch_seconds)] из лога бота."""
+    import datetime as _dt
+    events = []
+    for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        m = LOG_TS.match(line)
+        if not m:
+            continue
+        dt = _dt.datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")
+        events.append((m.group(3), dt.timestamp() + int(m.group(2)) / 1000))
+    return events
+
+
+def start_marker(video: Path) -> float | None:
+    for cand in (video.with_suffix(video.suffix + ".start"),
+                 video.with_suffix(".start"),
+                 video.with_name(video.stem + ".start")):
+        if cand.exists():
+            try:
+                return float(cand.read_text().strip())
+            except ValueError:
+                return None
+    return None
+
+
+def align_cues(cues: list[dict], events: list[tuple[str, float]],
+               zero: float, video_dur: float) -> list[dict]:
+    """Расставляет реплики по фактическим событиям бота (а не по секундомеру)."""
+    ins = [t - zero for kind, t in events if kind == "voice_in"]
+    outs = [t - zero for kind, t in events if kind == "reply_out"]
+    if not ins:
+        return cues
+
+    first_in = ins[0]
+    intro = cues[:4]
+    # вступление укладываем перед первым голосовым
+    total_intro = sum(c["duration"] for c in intro) + 0.6 * (len(intro) - 1)
+    start_intro = max(2.0, first_in - total_intro - 1.0)
+    cursor = start_intro
+    for c in intro:
+        c["start"] = round(cursor, 2)
+        cursor += c["duration"] + 0.6
+
+    def after(idx_list, t, min_gap=0.6):
+        return (idx_list[len(idx_list) - 1] if False else t)
+
+    anchors: dict[int, float] = {}
+    if len(cues) > 4 and ins:
+        anchors[5] = first_in + 0.6
+    if len(cues) > 5 and ins:
+        anchors[6] = first_in + 4.5
+    if len(cues) > 6 and outs:
+        anchors[7] = outs[0] + 0.6
+    if len(cues) > 7 and len(ins) > 1:
+        anchors[8] = ins[1] + 0.6
+    if len(cues) > 8 and len(outs) > 1:
+        anchors[9] = outs[1] + 0.6
+    if len(cues) > 9 and len(ins) > 2:
+        anchors[10] = ins[2] + 0.6
+    if len(cues) > 10 and len(outs) > 2:
+        anchors[11] = outs[2] + 0.6
+    if len(cues) > 11 and outs:
+        anchors[12] = outs[-1] + 8.0
+    if len(cues) > 12 and outs:
+        anchors[13] = max(outs[-1] + 20.0, (video_dur or 0) - 4.0)
+
+    prev_end = 0.0
+    for i, cue in enumerate(cues, start=1):
+        if i in anchors:
+            cue["start"] = round(max(anchors[i], prev_end + 0.4), 2)
+        prev_end = cue["start"] + cue["duration"]
+    return cues
 
 
 def has_audio(path: Path) -> bool:
@@ -45,6 +124,7 @@ def main() -> int:
     ap.add_argument("--narration", default=str(DEFAULT_NARRATION), help="каталог с репликами и plan.json")
     ap.add_argument("--out", default="", help="итоговый файл (по умолчанию рядом с видео, с суффиксом -final)")
     ap.add_argument("--subs", default="", help="SRT для вшивания в кадр (необязательно)")
+    ap.add_argument("--align-log", default="", help="лог бота: привязать реплики к фактическим событиям")
     ap.add_argument("--voice-gain", type=float, default=1.0, help="громкость озвучки")
     ap.add_argument("--screen-gain", type=float, default=0.85, help="громкость звука записи")
     args = ap.parse_args()
@@ -65,6 +145,22 @@ def main() -> int:
     if not cues:
         print("❌ в плане нет доступных файлов реплик")
         return 1
+
+    if args.align_log:
+        log_path = Path(args.align_log).expanduser()
+        zero = start_marker(video)
+        if not log_path.exists():
+            print(f"❌ нет лога {log_path} — выравнивание по событиям пропущено")
+        elif zero is None:
+            print(f"⚠️  нет маркера старта ({video.name}.start) — "
+                  f"выравнивание по событиям пропущено, беру тайминги из плана")
+        else:
+            events = parse_events(log_path)
+            fresh = [(k, t) for k, t in events if t >= zero - 1]
+            cues = align_cues(cues, fresh, zero, duration(video))
+            print("🎯 реплики привязаны к событиям бота:")
+            for c in cues:
+                print(f"   {int(c['start'])//60:02d}:{c['start']%60:05.2f}  {c['text'][:48]}…")
 
     out = Path(args.out).expanduser() if args.out else video.with_name(video.stem + "-final.mp4")
     vid_dur = duration(video)
