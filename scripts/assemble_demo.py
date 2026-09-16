@@ -280,6 +280,9 @@ def main() -> int:
     cmd += ["-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-shortest"]
     if subs_idx is not None:
         cmd += ["-map", f"{subs_idx}:0", "-c:s", "mov_text", "-metadata:s:s:0", "language=eng"]
+        # дорожка субтитров бывает длиннее видео — подрезаем, иначе часть плееров ругается
+        if vid_dur:
+            cmd += ["-t", f"{vid_dur:.3f}"]
     cmd += [str(out)]
 
     print("…сборка")
