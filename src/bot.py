@@ -70,6 +70,8 @@ async def _handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE, question:
         await with_retry(update.message.reply_text, f"Ошибка агента: {e}"[:400])
         return
 
+    log.info("инструменты: %s | графиков: %d", result.trace or "нет", len(result.charts))
+
     HISTORY.setdefault(chat_id, []).extend(
         [{"role": "user", "content": question}, {"role": "assistant", "content": result.text}])
     HISTORY[chat_id] = HISTORY[chat_id][-8:]
@@ -80,8 +82,8 @@ async def _handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE, question:
         try:
             with open(chart, "rb") as fh:
                 await with_retry(update.message.reply_photo, fh)
-        except Exception:  # noqa: BLE001
-            log.warning("не удалось отправить график %s", chart)
+        except Exception as e:  # noqa: BLE001
+            log.warning("не удалось отправить график %s: %s", chart, e)
 
     if reply_as_voice and config.TTS_ENABLED:
         await safe_action(ctx, chat_id, ChatAction.RECORD_VOICE)
