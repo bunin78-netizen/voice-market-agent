@@ -92,6 +92,9 @@ python scripts/smoke_test.py        # прогон всего пайплайна
 | `docs/demo-script.md` | сценарий демо для записи с компьютера |
 | `docs/demo-iphone.md` | сценарий записи на iPhone |
 | `docs/demo-narration.md` | готовый текст озвучки (RU/EN) |
+| `docs/demo-voiceover.md` | демо без голоса: озвучка моделью |
+| `scripts/make_narration.py` | генерация закадровой озвучки (ElevenLabs) |
+| `scripts/assemble_demo.py` | сведение записи экрана с озвучкой |
 
 ## Лицензия
 
