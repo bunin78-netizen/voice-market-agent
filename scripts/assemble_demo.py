@@ -169,6 +169,56 @@ def write_srt(cues: list[dict], en_texts: list[str], out: Path) -> Path | None:
     return path
 
 
+def build_with_card(video: Path, card_png: Path, seconds: float) -> Path | None:
+    """Приклеивает заставку в начало; маркер старта сдвигается на её длину."""
+    zero = start_marker(video)
+    if zero is None or not card_png.exists():
+        return None
+    probe = subprocess.run(
+        ["ffprobe", "-v", "error", "-select_streams", "v", "-show_entries",
+         "stream=width,height,r_frame_rate", "-of", "csv=p=0", str(video)],
+        capture_output=True, text=True).stdout.strip().strip(",")
+    parts = probe.split(",")
+    if len(parts) < 2:
+        return None
+    w, h = parts[0], parts[1]
+    fps = parts[2].split("/")[0] if len(parts) > 2 and parts[2] else "25"
+
+    work = video.parent / (video.stem + "-intro")
+    work.mkdir(exist_ok=True)
+    card = work / "card.mp4"
+    card_cmd = [
+        "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+        "-loop", "1", "-t", f"{seconds}", "-i", str(card_png),
+        "-f", "lavfi", "-t", f"{seconds}", "-i", "anullsrc=r=48000:cl=mono",
+        "-vf", f"scale={w}:{h}:force_original_aspect_ratio=decrease,"
+               f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=0x0d1117",
+        "-r", fps, "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+        "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-ar", "48000", "-ac", "1",
+        "-shortest", str(card),
+    ]
+    if subprocess.run(card_cmd, capture_output=True).returncode != 0:
+        print("⚠️  не удалось сделать заставку")
+        return None
+
+    combined = work / "combined.mp4"
+    # склейка фильтром (а не concat-демультиплексором): он выравнивает таймстемпы
+    res = subprocess.run([
+        "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+        "-i", str(card), "-i", str(video),
+        "-filter_complex", "[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]",
+        "-map", "[v]", "-map", "[a]",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(combined),
+    ], capture_output=True, text=True)
+    if res.returncode == 0 and combined.exists() and combined.stat().st_size > 10000:
+        (combined.parent / (combined.name + ".start")).write_text(str(zero - seconds))
+        print(f"🎬 заставка добавлена: {seconds:.0f} c")
+        return combined
+    print("⚠️  склейка с заставкой не удалась:", res.stderr.strip()[:200])
+    return None
+
+
 def has_filter(name: str) -> bool:
     out = subprocess.run(["ffmpeg", "-hide_banner", "-filters"], capture_output=True, text=True).stdout
     return any(line.split()[1:2] == [name] for line in out.splitlines() if len(line.split()) > 2)
@@ -199,6 +249,8 @@ def main() -> int:
     ap.add_argument("--out", default="", help="итоговый файл (по умолчанию рядом с видео, с суффиксом -final)")
     ap.add_argument("--subs", default="", help="SRT для вшивания в кадр (необязательно)")
     ap.add_argument("--crop-top", type=int, default=0, help="срезать N пикселей сверху (мигающая полоса)")
+    ap.add_argument("--intro-card", default="", help="PNG-заставка в начале видео")
+    ap.add_argument("--intro-seconds", type=float, default=5.0, help="сколько показывать заставку")
     ap.add_argument("--voice-before", type=float, default=0.0,
                     help="брать из архива только ответы, начавшиеся до этой секунды")
     ap.add_argument("--align-log", default="", help="лог бота: привязать реплики к фактическим событиям")
@@ -212,6 +264,14 @@ def main() -> int:
     if not video.exists():
         print(f"❌ нет файла {video}")
         return 1
+
+    if args.intro_card:
+        card_png = Path(args.intro_card).expanduser()
+        combined = build_with_card(video, card_png, args.intro_seconds)
+        if combined:
+            video = combined
+        else:
+            print("⚠️  продолжаю без заставки")
 
     narr_dir = Path(args.narration)
     plan_file = narr_dir / "plan.json"
