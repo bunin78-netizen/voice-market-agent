@@ -10,6 +10,15 @@
 - [x] реальный ответ LLM с двумя последовательными вызовами инструментов
 - [x] схема архитектуры и сценарий демо-видео
 - [x] MIT-лицензия, README, `.env.example`, `requirements.txt`
+- [x] репозиторий опубликован: https://github.com/bunin78-netizen/voice-market-agent
+- [x] бот @VoiceMarketAgentBot работает, полный голосовой цикл проверен
+
+## Ссылки для формы
+
+- **Репозиторий:** https://github.com/bunin78-netizen/voice-market-agent (публичный, MIT)
+- **Работающий бот:** https://t.me/VoiceMarketAgentBot
+- **Видео-демо:** _вписать ссылку после записи (YouTube, unlisted)_
+- **Страница хакатона:** https://lablab.ai/ai-hackathons/assemblyai-voice-agent-hackathon
 
 ## Что нужно от человека
 
