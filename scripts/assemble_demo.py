@@ -100,6 +100,38 @@ def align_cues(cues: list[dict], events: list[tuple[str, float]],
     return cues
 
 
+def collect_bot_voice(bdir: Path, zero: float | None) -> list[tuple[Path, float]]:
+    """Голосовые ответы бота: (файл, смещение в секундах от старта записи)."""
+    out: list[tuple[Path, float]] = []
+    if not bdir.is_dir() or zero is None:
+        return out
+    for f in sorted(bdir.glob("*.ogg")):
+        try:
+            ts = float(f.stem)
+        except ValueError:
+            continue
+        if ts >= zero - 5:
+            out.append((f, round(ts - zero, 2)))
+    return out
+
+
+def avoid_overlap(cues: list[dict], spoken: list[tuple[float, float]],
+                  gap: float = 0.5, min_gap: float = 0.4) -> list[dict]:
+    """Закадровый текст не должен звучать одновременно с голосом бота — иначе речь «двоится»."""
+    if not spoken:
+        return cues
+    cues = sorted(cues, key=lambda c: c["start"])
+    prev_end = 0.0
+    for cue in cues:
+        start = max(cue["start"], prev_end + min_gap)
+        for bs, be in spoken:
+            if start < be and start + cue["duration"] > bs:
+                start = be + gap
+        cue["start"] = round(start, 2)
+        prev_end = cue["start"] + cue["duration"]
+    return cues
+
+
 def fit_to_duration(cues: list[dict], video_dur: float, min_gap: float = 0.4,
                     tail: float = 0.5) -> list[dict]:
     """Если речь длиннее видео — пропорционально сжимаем паузы, чтобы всё уместилось."""
@@ -178,22 +210,29 @@ def main() -> int:
             if len(parts) == 2 and parts[0] in ("voice_in", "reply_out"):
                 events_override.append((parts[0], float(parts[1])))
 
-    if args.align_log or events_override:
+    zero = start_marker(video)
+    bot_voice = (collect_bot_voice(Path(args.bot_voice).expanduser(), zero)
+                 if args.bot_voice else [])
+    if bot_voice:
+        print("🔊 голос бота из архива:")
+        for f, off in bot_voice:
+            print(f"   {int(off)//60:02d}:{off%60:05.2f}  {f.name}")
+
+    if args.events_file and events_override and zero is not None:
+        cues = align_cues(cues, events_override, zero, duration(video))
+        print("🎯 реплики привязаны к событиям (из файла):")
+        for c in cues:
+            print(f"   {int(c['start'])//60:02d}:{c['start']%60:05.2f}  {c['text'][:48]}…")
+    elif args.align_log:
         log_path = Path(args.align_log).expanduser()
-        zero = start_marker(video)
-        if events_override and zero is not None:
-            cues = align_cues(cues, events_override, zero, duration(video))
-            print("🎯 реплики привязаны к событиям (из файла):")
-            for c in cues:
-                print(f"   {int(c['start'])//60:02d}:{c['start']%60:05.2f}  {c['text'][:48]}…")
-        elif not log_path.exists():
+        if not log_path.exists():
             print(f"❌ нет лога {log_path} — выравнивание по событиям пропущено")
         elif zero is None:
             print(f"⚠️  нет маркера старта ({video.name}.start) — "
-                  f"выравнивание по событиям пропущено, беру тайминги из плана")
+                  f"выравнивание пропущено, беру тайминги из плана")
         else:
             events = parse_events(log_path)
-            fresh = [(k, t) for k, t in events if t >= zero - 1]
+            fresh = [(k, tt) for k, tt in events if tt >= zero - 1]
             cues = align_cues(cues, fresh, zero, duration(video))
             print("🎯 реплики привязаны к событиям бота:")
             for c in cues:
@@ -201,9 +240,21 @@ def main() -> int:
 
     out = Path(args.out).expanduser() if args.out else video.with_name(video.stem + "-final.mp4")
     vid_dur = duration(video)
+    # после выравнивания разводим закадровый текст с голосом бота
+    spoken_spans = []
+    for f, off in bot_voice:
+        d = duration(f)
+        if d > 0:
+            spoken_spans.append((off, off + d))
+    cues = avoid_overlap(cues, spoken_spans)
     fitted = fit_to_duration(cues, vid_dur)
-    if fitted is not cues:
-        print("⏱  речь не помещалась — паузы сжаты автоматически")
+    cues = avoid_overlap(cues, spoken_spans)
+    over = [c for c in cues if c["start"] + c["duration"] > (vid_dur or 1e9) + 0.2]
+    if over:
+        print(f"✂️  не помещается в видео: {len(over)} реплик — убираю их")
+        cues = [c for c in cues if c not in over]
+    print("🎙  голос бота:", ", ".join(f"{int(s)//60:02d}:{s%60:04.1f}–{int(e)//60:02d}:{e%60:04.1f}"
+                                       for s, e in spoken_spans) or "нет")
     speech_end = max(c["start"] + c["duration"] for c in cues)
     print(f"видео: {vid_dur:.1f}c | речь заканчивается на {speech_end:.1f}c")
     if vid_dur and speech_end > vid_dur:
@@ -214,24 +265,7 @@ def main() -> int:
         print("❌ ffmpeg не найден")
         return 1
 
-    # голосовые ответы бота: берём из архива, а не из записи звука системы
-    bot_voice: list[tuple[Path, float]] = []
-    if args.bot_voice:
-        bdir = Path(args.bot_voice).expanduser()
-        zero_b = start_marker(video)
-        if bdir.is_dir() and zero_b is not None:
-            for f in sorted(bdir.glob("*.ogg")):
-                try:
-                    ts = float(f.stem)
-                except ValueError:
-                    continue
-                if ts >= zero_b - 5:
-                    bot_voice.append((f, round(ts - zero_b, 2)))
-            if bot_voice:
-                print("🔊 голос бота из архива:")
-                for f, off in bot_voice:
-                    print(f"   {int(off)//60:02d}:{off%60:05.2f}  {f.name}")
-
+    # голосовые ответы бота уже собраны выше
     cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(video)]
     for cue in cues:
         cmd += ["-i", str(narr_dir / cue["file"])]
