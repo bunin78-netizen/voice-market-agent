@@ -249,10 +249,10 @@ def main() -> int:
     cues = avoid_overlap(cues, spoken_spans)
     fitted = fit_to_duration(cues, vid_dur)
     cues = avoid_overlap(cues, spoken_spans)
-    over = [c for c in cues if c["start"] + c["duration"] > (vid_dur or 1e9) + 0.2]
-    if over:
-        print(f"✂️  не помещается в видео: {len(over)} реплик — убираю их")
-        cues = [c for c in cues if c not in over]
+    speech_end = max((c["start"] + c["duration"] for c in cues), default=0.0)
+    overhang = max(0.0, speech_end + 0.5 - (vid_dur or 0.0))
+    if overhang > 0.4:
+        print(f"🧊 видео короче речи на {overhang:.1f}c — последний кадр замрёт на это время")
     print("🎙  голос бота:", ", ".join(f"{int(s)//60:02d}:{s%60:04.1f}–{int(e)//60:02d}:{e%60:04.1f}"
                                        for s, e in spoken_spans) or "нет")
     speech_end = max(c["start"] + c["duration"] for c in cues)
@@ -299,13 +299,19 @@ def main() -> int:
         mix_inputs.append(f"[bot{k}]")
     filters.append("".join(mix_inputs) + f"amix=inputs={len(mix_inputs)}:normalize=0:dropout_transition=0[aout]")
 
-    if burn and subs_path:
+    pad = overhang if overhang > 0.4 else 0.0
+    if not burn and pad:
+        filters.append(f"[0:v]tpad=stop_mode=clone:stop_duration={pad:.3f}[vpad]")
+        cmd += ["-filter_complex", ";".join(filters),
+                "-map", "[vpad]", "-map", "[aout]",
+                "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p"]
+    elif burn and subs_path:
         esc = str(subs_path).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
         filters.append(f"[0:v]subtitles='{esc}'[vout]")
         cmd += ["-filter_complex", ";".join(filters),
                 "-map", "[vout]", "-map", "[aout]",
                 "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p"]
-    else:
+    elif not pad:
         if subs_path:
             print("ℹ️  фильтра subtitles в этой сборке ffmpeg нет — субтитры пойдут дорожкой mov_text")
         cmd += ["-filter_complex", ";".join(filters),
