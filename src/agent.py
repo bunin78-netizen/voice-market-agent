@@ -1,0 +1,66 @@
+"""Оркестратор: вопрос пользователя → инструменты → финальный ответ.
+
+Ответ задуман «под озвучку»: короткие фразы, без markdown-таблиц и без ссылок.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from . import config, tools
+from .llm import chat
+
+SYSTEM_PROMPT = """Ты — Voice Market Agent, голосовой рыночный ассистент в Telegram.
+
+Правила:
+1. Отвечай на языке пользователя (русский → русский, английский → английский).
+2. Ответ будет озвучен вслух: 2–5 коротких предложений, без списков, таблиц, markdown и ссылок.
+3. Числа произноси кратко: «сто девятнадцать тысяч двести», цену — с двумя знаками смысла, не больше.
+4. Всегда опирайся на инструменты, не выдумывай цены. Если данных нет — скажи прямо.
+5. Если пользователь просит график — вызови make_chart и добавь одну фразу, что показать на графике.
+6. Не давай инвестиционных советов и прогнозов «куда пойдёт цена»: только факты, уровни и состояния индикаторов.
+7. Если вопрос не о рынке — коротко ответь по существу без инструментов.
+"""
+
+MAX_STEPS = 5
+
+
+@dataclass
+class AgentResult:
+    text: str
+    charts: list[Path] = field(default_factory=list)
+    trace: list[str] = field(default_factory=list)
+
+
+def answer(question: str, history: list[dict] | None = None,
+           allow_tools: bool = True) -> AgentResult:
+    tools.ARTIFACTS.clear()
+    messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
+    if history:
+        messages.extend(history[-6:])
+    messages.append({"role": "user", "content": question})
+
+    trace: list[str] = []
+    for _ in range(MAX_STEPS):
+        reply = chat(messages, tools=tools.TOOL_SCHEMAS if allow_tools else None)
+        if not reply.tool_calls:
+            return AgentResult(text=reply.content or "Не смог сформулировать ответ.",
+                               charts=list(tools.ARTIFACTS), trace=trace)
+
+        messages.append({
+            "role": "assistant",
+            "content": reply.content or "",
+            "tool_calls": [
+                {"id": c["id"], "type": "function",
+                 "function": {"name": c["name"], "arguments": __import__("json").dumps(c["args"],
+                                                                                      ensure_ascii=False)}}
+                for c in reply.tool_calls
+            ],
+        })
+        for call in reply.tool_calls:
+            result = tools.execute(call["name"], call["args"])
+            trace.append(f"{call['name']}({call['args']})")
+            messages.append({"role": "tool", "tool_call_id": call["id"], "content": result})
+
+    return AgentResult(text="Слишком много шагов для одного вопроса — уточни, пожалуйста.",
+                       charts=list(tools.ARTIFACTS), trace=trace)
