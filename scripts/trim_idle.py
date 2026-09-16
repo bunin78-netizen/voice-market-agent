@@ -117,7 +117,7 @@ def main() -> int:
     for k, t in events:
         if k == "voice_saved":
             protect.append((t - 1.0, t + 25.0))
-    protect.append((outs[-1] + 6.0, total))
+    protect.append((outs[-1] - 12.0, total))   # не трогаем показ последнего ответа
 
     def protected(a: float, b: float) -> bool:
         return any(a < pe and b > ps for ps, pe in protect)

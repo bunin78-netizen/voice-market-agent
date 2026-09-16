@@ -170,6 +170,25 @@ def write_srt(cues: list[dict], en_texts: list[str], out: Path) -> Path | None:
     return path
 
 
+def ensure_audio(video: Path) -> Path:
+    """У видеозаписи без звуковой дорожки склейка с заставкой ломается — добавляем тишину."""
+    if has_audio(video):
+        return video
+    out = video.with_name(video.stem + "-aud.mp4")
+    res = subprocess.run([
+        "ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(video),
+        "-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono",
+        "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "96k",
+        "-shortest", "-movflags", "+faststart", str(out)], capture_output=True)
+    if res.returncode == 0 and out.exists():
+        src_marker = video.with_suffix(video.suffix + ".start")
+        if src_marker.exists():
+            out.with_suffix(out.suffix + ".start").write_text(src_marker.read_text())
+        print("🔇 у записи не было звука — добавил тишину для склейки")
+        return out
+    return video
+
+
 def build_with_card(video: Path, card_png: Path, seconds: float) -> Path | None:
     """Приклеивает заставку в начало; маркер старта сдвигается на её длину."""
     zero = start_marker(video)
@@ -266,6 +285,8 @@ def main() -> int:
     if not video.exists():
         print(f"❌ нет файла {video}")
         return 1
+
+    video = ensure_audio(video)
 
     if args.intro_card:
         card_png = Path(args.intro_card).expanduser()
