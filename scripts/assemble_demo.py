@@ -118,6 +118,11 @@ def fit_to_duration(cues: list[dict], video_dur: float, min_gap: float = 0.4,
     return cues
 
 
+def has_filter(name: str) -> bool:
+    out = subprocess.run(["ffmpeg", "-hide_banner", "-filters"], capture_output=True, text=True).stdout
+    return any(line.split()[1:2] == [name] for line in out.splitlines() if len(line.split()) > 2)
+
+
 def has_audio(path: Path) -> bool:
     out = subprocess.run(
         ["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries",
@@ -233,6 +238,16 @@ def main() -> int:
     for f, _ in bot_voice:
         cmd += ["-i", str(f)]
 
+    subs_path = Path(args.subs).expanduser() if args.subs else None
+    burn = bool(subs_path) and has_filter("subtitles")
+    subs_idx = None
+    if subs_path and not burn:
+        if not subs_path.exists():
+            print(f"❌ нет файла субтитров {subs_path}")
+            return 1
+        subs_idx = 1 + len(cues) + len(bot_voice)
+        cmd += ["-i", str(subs_path)]
+
     filters, mix_inputs = [], []
     screen_has_audio = has_audio(video)
     if screen_has_audio:
@@ -250,22 +265,22 @@ def main() -> int:
         mix_inputs.append(f"[bot{k}]")
     filters.append("".join(mix_inputs) + f"amix=inputs={len(mix_inputs)}:normalize=0:dropout_transition=0[aout]")
 
-    if args.subs:
-        subs = Path(args.subs)
-        if not subs.exists():
-            print(f"❌ нет файла субтитров {subs}")
-            return 1
-        # экранирование пути для фильтра subtitles
-        esc = str(subs).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+    if burn and subs_path:
+        esc = str(subs_path).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
         filters.append(f"[0:v]subtitles='{esc}'[vout]")
         cmd += ["-filter_complex", ";".join(filters),
                 "-map", "[vout]", "-map", "[aout]",
                 "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p"]
     else:
+        if subs_path:
+            print("ℹ️  фильтра subtitles в этой сборке ffmpeg нет — субтитры пойдут дорожкой mov_text")
         cmd += ["-filter_complex", ";".join(filters),
                 "-map", "0:v", "-map", "[aout]", "-c:v", "copy"]
 
-    cmd += ["-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-shortest", str(out)]
+    cmd += ["-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-shortest"]
+    if subs_idx is not None:
+        cmd += ["-map", f"{subs_idx}:0", "-c:s", "mov_text", "-metadata:s:s:0", "language=eng"]
+    cmd += [str(out)]
 
     print("…сборка")
     proc = subprocess.run(cmd, capture_output=True, text=True)
