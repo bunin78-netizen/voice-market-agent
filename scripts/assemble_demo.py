@@ -99,7 +99,7 @@ def align_cues(cues: list[dict], events: list[tuple[str, float]],
     return cues
 
 
-def collect_bot_voice(bdir: Path, zero: float | None) -> list[tuple[Path, float]]:
+def collect_bot_voice(bdir: Path, zero: float | None, before: float | None = None) -> list[tuple[Path, float]]:
     """Голосовые ответы бота: (файл, смещение в секундах от старта записи)."""
     out: list[tuple[Path, float]] = []
     if not bdir.is_dir() or zero is None:
@@ -109,7 +109,7 @@ def collect_bot_voice(bdir: Path, zero: float | None) -> list[tuple[Path, float]
             ts = float(f.stem)
         except ValueError:
             continue
-        if ts >= zero - 5:
+        if ts >= zero - 5 and (before is None or ts - zero <= before):
             out.append((f, round(ts - zero, 2)))
     return out
 
@@ -202,6 +202,8 @@ def main() -> int:
     ap.add_argument("--out", default="", help="итоговый файл (по умолчанию рядом с видео, с суффиксом -final)")
     ap.add_argument("--subs", default="", help="SRT для вшивания в кадр (необязательно)")
     ap.add_argument("--crop-top", type=int, default=0, help="срезать N пикселей сверху (мигающая полоса)")
+    ap.add_argument("--voice-before", type=float, default=0.0,
+                    help="брать из архива только ответы, начавшиеся до этой секунды")
     ap.add_argument("--align-log", default="", help="лог бота: привязать реплики к фактическим событиям")
     ap.add_argument("--bot-voice", default="", help="каталог с голосовыми ответами бота (имя файла = epoch секунд)")
     ap.add_argument("--events-file", default="", help="файл событий «тип epoch» (если лог недоступен)")
@@ -234,7 +236,8 @@ def main() -> int:
                 events_override.append((parts[0], float(parts[1])))
 
     zero = start_marker(video)
-    bot_voice = (collect_bot_voice(Path(args.bot_voice).expanduser(), zero)
+    bot_voice = (collect_bot_voice(Path(args.bot_voice).expanduser(), zero,
+                                   args.voice_before or None)
                  if args.bot_voice else [])
     if bot_voice:
         print("🔊 голос бота из архива:")
