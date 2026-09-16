@@ -87,10 +87,15 @@ def align_cues(cues: list[dict], events: list[tuple[str, float]],
         anchors[10] = ins[2] + 0.6
     if len(cues) > 10 and len(outs) > 2:
         anchors[11] = outs[2] + 0.6
-    if len(cues) > 11 and outs:
-        anchors[12] = outs[-1] + 8.0
-    if len(cues) > 12 and outs:
-        anchors[13] = max(outs[-1] + 20.0, (video_dur or 0) - 4.0)
+    # строку про стек ставим в свободное окно перед третьим вопросом
+    if len(cues) > 10 and len(ins) > 2:
+        anchors[10] = max(ins[2] - cues[9]["duration"] - 1.0, 0.0)
+    if len(cues) > 11 and len(ins) > 2:
+        anchors[11] = ins[2] + 0.6
+    if len(cues) > 12 and len(outs) > 2:
+        anchors[12] = outs[2] + 0.6
+    if len(cues) > 13 and outs:
+        anchors[13] = outs[-1] + 0.6
 
     prev_end = 0.0
     for i, cue in enumerate(cues, start=1):
@@ -179,6 +184,7 @@ def main() -> int:
     ap.add_argument("--narration", default=str(DEFAULT_NARRATION), help="каталог с репликами и plan.json")
     ap.add_argument("--out", default="", help="итоговый файл (по умолчанию рядом с видео, с суффиксом -final)")
     ap.add_argument("--subs", default="", help="SRT для вшивания в кадр (необязательно)")
+    ap.add_argument("--crop-top", type=int, default=0, help="срезать N пикселей сверху (мигающая полоса)")
     ap.add_argument("--align-log", default="", help="лог бота: привязать реплики к фактическим событиям")
     ap.add_argument("--bot-voice", default="", help="каталог с голосовыми ответами бота (имя файла = epoch секунд)")
     ap.add_argument("--events-file", default="", help="файл событий «тип epoch» (если лог недоступен)")
@@ -300,8 +306,11 @@ def main() -> int:
     filters.append("".join(mix_inputs) + f"amix=inputs={len(mix_inputs)}:normalize=0:dropout_transition=0[aout]")
 
     pad = overhang if overhang > 0.4 else 0.0
+    crop = f"crop=iw:ih-{args.crop_top}:0:{args.crop_top}," if args.crop_top else ""
+    if crop:
+        print(f"✂️  срезаю верхние {args.crop_top}px")
     if not burn and pad:
-        filters.append(f"[0:v]tpad=stop_mode=clone:stop_duration={pad:.3f}[vpad]")
+        filters.append(f"[0:v]{crop}tpad=stop_mode=clone:stop_duration={pad:.3f}[vpad]")
         cmd += ["-filter_complex", ";".join(filters),
                 "-map", "[vpad]", "-map", "[aout]",
                 "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p"]
@@ -314,8 +323,14 @@ def main() -> int:
     elif not pad:
         if subs_path:
             print("ℹ️  фильтра subtitles в этой сборке ffmpeg нет — субтитры пойдут дорожкой mov_text")
-        cmd += ["-filter_complex", ";".join(filters),
-                "-map", "0:v", "-map", "[aout]", "-c:v", "copy"]
+        if crop:
+            filters.append(f"[0:v]{crop}trim=end={vid_dur:.3f},setpts=PTS-STARTPTS[vcrop]")
+            cmd += ["-filter_complex", ";".join(filters),
+                    "-map", "[vcrop]", "-map", "[aout]",
+                    "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p"]
+        else:
+            cmd += ["-filter_complex", ";".join(filters),
+                    "-map", "0:v", "-map", "[aout]", "-c:v", "copy"]
 
     cmd += ["-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-shortest"]
     if subs_idx is not None:
