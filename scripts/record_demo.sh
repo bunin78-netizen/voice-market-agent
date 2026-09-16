@@ -21,7 +21,7 @@ cd "$(dirname "$0")/.." || exit 1
 detect_area() {
   command -v xwininfo >/dev/null || return 1
   DISPLAY="${DISPLAY:-:0}" xwininfo -root -tree 2>/dev/null \
-    | grep -i 'telegram' \
+    | grep -i 'telegram' | grep -vi 'media viewer' | grep -vi 'selection owner' \
     | sed -n 's/.*)  \([0-9]\{3,\}\)x\([0-9]\{3,\}\)+\([-0-9]\+\)+\([-0-9]\+\)  .*/\1 \2 \3 \4/p' \
     | awk '{ if ($1*$2 > best) { best=$1*$2; w=$1; h=$2; x=$3; y=$4 } } END { if (best > 100000) printf "%dx%d+%d+%d", w, h, x, y }'
 }

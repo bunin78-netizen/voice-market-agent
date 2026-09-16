@@ -95,6 +95,13 @@ async def _handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE, question:
         await safe_action(ctx, chat_id, ChatAction.RECORD_VOICE)
         try:
             voice_file = tts.synthesize(spoken or result.text, as_voice=True)
+            # архив озвучки с меткой времени — по нему собираем демо-видео без записи звука системы
+            import shutil, time as _time
+            archive = config.TMP_DIR / "voice-replies"
+            archive.mkdir(exist_ok=True)
+            saved = archive / f"{int(_time.time())}.ogg"
+            shutil.copyfile(voice_file, saved)
+            log.info("EVENT voice_saved %s", saved.name)
             with open(voice_file, "rb") as fh:
                 await with_retry(update.message.reply_voice, fh)
         except tts.TTSError as e:

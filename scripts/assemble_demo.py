@@ -100,6 +100,24 @@ def align_cues(cues: list[dict], events: list[tuple[str, float]],
     return cues
 
 
+def fit_to_duration(cues: list[dict], video_dur: float, min_gap: float = 0.4,
+                    tail: float = 0.5) -> list[dict]:
+    """Если речь длиннее видео — пропорционально сжимаем паузы, чтобы всё уместилось."""
+    if not video_dur or not cues:
+        return cues
+    last_end = max(c["start"] + c["duration"] for c in cues)
+    limit = video_dur - tail
+    if last_end <= limit:
+        return cues
+    factor = max(0.35, (limit - sum(c["duration"] for c in cues)) /
+                 max(0.1, last_end - sum(c["duration"] for c in cues)))
+    prev_end = -min_gap
+    for cue in cues:
+        cue["start"] = round(max(cue["start"] * factor, prev_end + min_gap), 2)
+        prev_end = cue["start"] + cue["duration"]
+    return cues
+
+
 def has_audio(path: Path) -> bool:
     out = subprocess.run(
         ["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries",
@@ -125,6 +143,8 @@ def main() -> int:
     ap.add_argument("--out", default="", help="итоговый файл (по умолчанию рядом с видео, с суффиксом -final)")
     ap.add_argument("--subs", default="", help="SRT для вшивания в кадр (необязательно)")
     ap.add_argument("--align-log", default="", help="лог бота: привязать реплики к фактическим событиям")
+    ap.add_argument("--bot-voice", default="", help="каталог с голосовыми ответами бота (имя файла = epoch секунд)")
+    ap.add_argument("--events-file", default="", help="файл событий «тип epoch» (если лог недоступен)")
     ap.add_argument("--voice-gain", type=float, default=1.0, help="громкость озвучки")
     ap.add_argument("--screen-gain", type=float, default=0.85, help="громкость звука записи")
     args = ap.parse_args()
@@ -146,10 +166,22 @@ def main() -> int:
         print("❌ в плане нет доступных файлов реплик")
         return 1
 
-    if args.align_log:
+    events_override: list[tuple[str, float]] = []
+    if args.events_file:
+        for line in Path(args.events_file).expanduser().read_text().splitlines():
+            parts = line.split()
+            if len(parts) == 2 and parts[0] in ("voice_in", "reply_out"):
+                events_override.append((parts[0], float(parts[1])))
+
+    if args.align_log or events_override:
         log_path = Path(args.align_log).expanduser()
         zero = start_marker(video)
-        if not log_path.exists():
+        if events_override and zero is not None:
+            cues = align_cues(cues, events_override, zero, duration(video))
+            print("🎯 реплики привязаны к событиям (из файла):")
+            for c in cues:
+                print(f"   {int(c['start'])//60:02d}:{c['start']%60:05.2f}  {c['text'][:48]}…")
+        elif not log_path.exists():
             print(f"❌ нет лога {log_path} — выравнивание по событиям пропущено")
         elif zero is None:
             print(f"⚠️  нет маркера старта ({video.name}.start) — "
@@ -164,6 +196,9 @@ def main() -> int:
 
     out = Path(args.out).expanduser() if args.out else video.with_name(video.stem + "-final.mp4")
     vid_dur = duration(video)
+    fitted = fit_to_duration(cues, vid_dur)
+    if fitted is not cues:
+        print("⏱  речь не помещалась — паузы сжаты автоматически")
     speech_end = max(c["start"] + c["duration"] for c in cues)
     print(f"видео: {vid_dur:.1f}c | речь заканчивается на {speech_end:.1f}c")
     if vid_dur and speech_end > vid_dur:
@@ -174,9 +209,29 @@ def main() -> int:
         print("❌ ffmpeg не найден")
         return 1
 
+    # голосовые ответы бота: берём из архива, а не из записи звука системы
+    bot_voice: list[tuple[Path, float]] = []
+    if args.bot_voice:
+        bdir = Path(args.bot_voice).expanduser()
+        zero_b = start_marker(video)
+        if bdir.is_dir() and zero_b is not None:
+            for f in sorted(bdir.glob("*.ogg")):
+                try:
+                    ts = float(f.stem)
+                except ValueError:
+                    continue
+                if ts >= zero_b - 5:
+                    bot_voice.append((f, round(ts - zero_b, 2)))
+            if bot_voice:
+                print("🔊 голос бота из архива:")
+                for f, off in bot_voice:
+                    print(f"   {int(off)//60:02d}:{off%60:05.2f}  {f.name}")
+
     cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(video)]
     for cue in cues:
         cmd += ["-i", str(narr_dir / cue["file"])]
+    for f, _ in bot_voice:
+        cmd += ["-i", str(f)]
 
     filters, mix_inputs = [], []
     screen_has_audio = has_audio(video)
@@ -187,6 +242,12 @@ def main() -> int:
         delay = int(cue["start"] * 1000)
         filters.append(f"[{idx}:a]adelay={delay}|{delay},volume={args.voice_gain}[n{idx}]")
         mix_inputs.append(f"[n{idx}]")
+    base = len(cues) + 1
+    for k, (f, off) in enumerate(bot_voice):
+        idx = base + k
+        ms = int(off * 1000)
+        filters.append(f"[{idx}:a]adelay={ms}|{ms},volume=1.0[bot{k}]")
+        mix_inputs.append(f"[bot{k}]")
     filters.append("".join(mix_inputs) + f"amix=inputs={len(mix_inputs)}:normalize=0:dropout_transition=0[aout]")
 
     if args.subs:
