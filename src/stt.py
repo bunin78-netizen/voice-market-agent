@@ -58,7 +58,8 @@ def transcribe_assemblyai(
     audio_url = upload(path)
     payload: dict = {
         "audio_url": audio_url,
-        "speech_model": "universal",
+        # API v2 принимает список моделей в порядке приоритета (старое поле speech_model удалено)
+        "speech_models": ["universal-3-5-pro", "universal-2"],
         "punctuate": True,
         "format_text": True,
     }
