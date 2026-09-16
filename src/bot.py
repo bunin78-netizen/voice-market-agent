@@ -89,6 +89,8 @@ async def _handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE, question:
         except Exception as e:  # noqa: BLE001
             log.warning("не удалось отправить график %s: %s", chart, e)
 
+    log.info("EVENT reply_out charts=%d voice=%s", len(result.charts), reply_as_voice)
+
     if reply_as_voice and config.TTS_ENABLED:
         await safe_action(ctx, chat_id, ChatAction.RECORD_VOICE)
         try:
@@ -110,6 +112,7 @@ async def on_voice(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     voice = update.message.voice or update.message.audio
     if voice is None:
         return
+    log.info("EVENT voice_in chat=%s", chat_id)
 
     await safe_action(ctx, chat_id, ChatAction.TYPING)
     tg_file = await ctx.bot.get_file(voice.file_id)
