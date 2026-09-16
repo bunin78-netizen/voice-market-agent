@@ -63,10 +63,14 @@ def transcribe_assemblyai(
         "punctuate": True,
         "format_text": True,
     }
-    if language:
-        payload["language_code"] = language
+    lang = language or config.STT_LANGUAGE
+    if lang:
+        payload["language_code"] = lang
     else:
         payload["language_detection"] = True
+    if config.STT_KEYTERMS:
+        # подсказка словарём: доменные термины распознаются заметно надёжнее
+        payload["keyterms_prompt"] = config.STT_KEYTERMS[:50]
 
     r = requests.post(f"{AAI_BASE}/transcript", headers=_aai_headers(), json=payload, timeout=60)
     if r.status_code >= 300:
