@@ -75,21 +75,18 @@ def align_cues(cues: list[dict], events: list[tuple[str, float]],
     anchors: dict[int, float] = {}
     if len(cues) > 4 and ins:
         anchors[5] = first_in + 0.6
-    if len(cues) > 5 and ins:
-        anchors[6] = first_in + 4.5
-    if len(cues) > 6 and outs:
-        anchors[7] = outs[0] + 0.6
-    if len(cues) > 7 and len(ins) > 1:
-        anchors[8] = ins[1] + 0.6
-    if len(cues) > 8 and len(outs) > 1:
-        anchors[9] = outs[1] + 0.6
-    # «под капотом» — в свободное окно перед третьим вопросом
+    if len(cues) > 5 and outs:
+        anchors[6] = outs[0] + 0.6
+    if len(cues) > 6 and len(ins) > 1:
+        anchors[7] = ins[1] + 0.6
+    if len(cues) > 7 and len(outs) > 1:
+        anchors[8] = outs[1] + 0.6
+    if len(cues) > 8 and len(ins) > 2:
+        anchors[9] = max(ins[2] - cues[8]["duration"] - 1.0, 0.0)
     if len(cues) > 9 and len(ins) > 2:
-        anchors[10] = max(ins[2] - cues[9]["duration"] - 1.0, 0.0)
-    if len(cues) > 10 and len(ins) > 2:
-        anchors[11] = ins[2] + 0.6
-    if len(cues) > 11 and len(outs) > 2:
-        anchors[12] = outs[2] + 0.6
+        anchors[10] = ins[2] + 0.6
+    if len(cues) > 10 and len(outs) > 2:
+        anchors[11] = outs[2] + 0.6
 
     prev_end = 0.0
     for i, cue in enumerate(cues, start=1):

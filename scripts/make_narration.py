@@ -36,21 +36,18 @@ CUES: list[dict] = [
            "message to Telegram and it does the rest."},
     {"at": "00:32", "text": "Смотрите.",
      "en": "Let me show you."},
-    {"at": "00:45", "text": "Первое — распознавание. AssemblyAI превращает запись в текст, "
-                           "устойчиво к терминам вроде RSI и Боллинджера.",
-     "en": "First, speech recognition. AssemblyAI turns the recording into text, reliably "
-           "handling terms like RSI and Bollinger Bands."},
-    {"at": "00:54", "text": "Дальше модель сама решает, какие данные ей нужны: цена, RSI, "
-                           "скользящая средняя, линии Боллинджера.",
-     "en": "Then the model decides which data it needs: price, RSI, moving average, "
-           "Bollinger Bands."},
+    {"at": "00:45", "text": "Спрашиваю голосом: что с биткоином на четырёхчасовом? AssemblyAI "
+                           "превращает запись в текст — устойчиво к терминам вроде RSI и Боллинджера.",
+     "en": "I ask by voice: what is Bitcoin doing on the four-hour chart? AssemblyAI turns the "
+           "recording into text, reliably handling terms like RSI and Bollinger Bands."},
     {"at": "01:06", "text": "Ответ приходит голосом — слушать можно, не глядя в экран. "
                            "И текстом, чтобы можно было перечитать.",
      "en": "The answer comes back as voice — listen without looking at the screen — "
            "and as text you can re-read."},
-    {"at": "01:21", "text": "Теперь про график. Я не подсказываю, какой инструмент вызвать — "
+    {"at": "01:21", "text": "Прошу дневной график эфира. Я не подсказываю, какой инструмент вызвать — "
                            "это решает сама модель.",
-     "en": "Now a chart. I am not telling it which tool to call — the model decides."},
+     "en": "Now I ask for a daily Ether chart. I am not telling it which tool to call — "
+           "the model decides."},
     {"at": "01:30", "text": "Свечи, SMA20, линии Боллинджера и панель RSI. "
                            "График построен прямо в момент запроса.",
      "en": "Candles, SMA20, Bollinger Bands and an RSI panel — built on demand."},
@@ -58,8 +55,10 @@ CUES: list[dict] = [
                            "инструментов и Telegram как интерфейс.",
      "en": "Under the hood: AssemblyAI for speech, an LLM with tool calling, "
            "and Telegram as the interface."},
-    {"at": "02:10", "text": "И ещё один инструмент — индекс страха и жадности рынка.",
-     "en": "One more tool: the market Fear and Greed index."},
+    {"at": "02:10", "text": "И последний вопрос — что по настроению рынка. Индекс страха и "
+                           "жадности — тоже инструмент агента.",
+     "en": "And the last question — how is market sentiment? The Fear and Greed index is "
+           "another tool the agent can call."},
     {"at": "02:45", "text": "Код открыт, ссылка в описании. Спасибо.",
      "en": "The code is open source — link in the description. Thank you."},
 ]
