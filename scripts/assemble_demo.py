@@ -59,39 +59,40 @@ def align_cues(cues: list[dict], events: list[tuple[str, float]],
     if not ins:
         return cues
 
-    first_in = ins[0]
-    intro = cues[:4]
-    # вступление укладываем перед первым голосовым
-    total_intro = sum(c["duration"] for c in intro) + 0.6 * (len(intro) - 1)
-    start_intro = max(2.0, first_in - total_intro - 1.0)
-    cursor = start_intro
+    def anchor_time(name: str, cue: dict) -> float | None:
+        if name == "q1" and ins:
+            return ins[0] + 0.6
+        if name == "a1" and outs:
+            return outs[0] + 0.6
+        if name == "q2" and len(ins) > 1:
+            return ins[1] + 0.6
+        if name == "a2" and len(outs) > 1:
+            return outs[1] + 0.6
+        if name == "pre_q3" and len(ins) > 2:
+            return max(ins[2] - cue["duration"] - 1.0, 0.0)
+        if name == "q3" and len(ins) > 2:
+            return ins[2] + 0.6
+        if name == "a3" and len(outs) > 2:
+            return outs[2] + 0.6
+        if name == "end" and outs:
+            return outs[-1] + 0.6
+        return None
+
+    intro = [c for c in cues if c.get("anchor") == "intro"]
+    total_intro = sum(c["duration"] for c in intro) + 0.6 * max(0, len(intro) - 1)
+    cursor = max(2.0, ins[0] - total_intro - 1.0)
     for c in intro:
         c["start"] = round(cursor, 2)
         cursor += c["duration"] + 0.6
 
-    def after(idx_list, t, min_gap=0.6):
-        return (idx_list[len(idx_list) - 1] if False else t)
-
-    anchors: dict[int, float] = {}
-    if len(cues) > 4 and ins:
-        anchors[5] = first_in + 0.6
-    if len(cues) > 5 and outs:
-        anchors[6] = outs[0] + 0.6
-    if len(cues) > 6 and len(ins) > 1:
-        anchors[7] = ins[1] + 0.6
-    if len(cues) > 7 and len(outs) > 1:
-        anchors[8] = outs[1] + 0.6
-    if len(cues) > 8 and len(ins) > 2:
-        anchors[9] = max(ins[2] - cues[8]["duration"] - 1.0, 0.0)
-    if len(cues) > 9 and len(ins) > 2:
-        anchors[10] = ins[2] + 0.6
-    if len(cues) > 10 and len(outs) > 2:
-        anchors[11] = outs[2] + 0.6
-
-    prev_end = 0.0
-    for i, cue in enumerate(cues, start=1):
-        if i in anchors:
-            cue["start"] = round(max(anchors[i], prev_end + 0.4), 2)
+    prev_end = max((c["start"] + c["duration"] for c in intro), default=0.0)
+    for cue in cues:
+        if cue.get("anchor") == "intro":
+            continue
+        t0 = anchor_time(cue.get("anchor", ""), cue)
+        if t0 is None:
+            t0 = prev_end + 0.4
+        cue["start"] = round(max(t0, prev_end + 0.4), 2)
         prev_end = cue["start"] + cue["duration"]
     return cues
 
@@ -330,14 +331,18 @@ def main() -> int:
         d = duration(f)
         if d > 0:
             spoken_spans.append((off, off + d))
-    cues = avoid_overlap(cues, spoken_spans)
-    fitted = fit_to_duration(cues, vid_dur)
-    cues = avoid_overlap(cues, spoken_spans)
-    # учитываем и закадровый текст, и голос бота: что из них длиннее — то и задаёт конец
-    narration_end = max((c["start"] + c["duration"] for c in cues), default=0.0)
+    # сколько времени нужно: текст + голос бота + финальная реплика ПОСЛЕ последнего ответа
     voice_end = max((e for _, e in spoken_spans), default=0.0)
-    speech_end = max(narration_end, voice_end)
-    overhang = max(0.0, speech_end + 0.5 - (vid_dur or 0.0))
+    tail_dur = max((c["duration"] for c in cues if c.get("anchor") == "end"), default=0.0)
+    cues = avoid_overlap(cues, spoken_spans)
+    narration_end = max((c["start"] + c["duration"] for c in cues), default=0.0)
+    needed = max(narration_end, voice_end + (0.5 + tail_dur if tail_dur else 0.0))
+    overhang = max(0.0, needed + 0.5 - (vid_dur or 0.0))
+    total_dur = (vid_dur or 0.0) + overhang
+    cues = avoid_overlap(cues, spoken_spans)
+    cues = fit_to_duration(cues, total_dur)
+    cues = avoid_overlap(cues, spoken_spans)
+    narration_end = max((c["start"] + c["duration"] for c in cues), default=0.0)
     pad = overhang if overhang > 0.4 else 0.0
     crop = f"crop=iw:ih-{args.crop_top}:0:{args.crop_top}," if args.crop_top else ""
     if crop:

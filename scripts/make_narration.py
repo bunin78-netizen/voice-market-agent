@@ -25,41 +25,54 @@ from src import config  # noqa: E402
 from src.tts import VOICE_IDS  # noqa: E402
 
 # Реплики закадрового голоса: (момент в видео, секунда, текст)
+# anchor — к какому событию привязывать реплику:
+#   intro | q1 | a1 | q2 | a2 | pre_q3 | q3 | a3 | end
 CUES: list[dict] = [
-    {"at": "00:04", "text": "Рыночную сводку обычно смотрят глазами: терминал, график, индикаторы.",
+    {"anchor": "intro", "text": "Рыночную сводку обычно смотрят глазами: терминал, график, индикаторы.",
      "en": "Market updates usually mean staring at a terminal, a chart, a few indicators."},
-    {"at": "00:12", "text": "А если руки заняты — за рулём или в работе — эти десять минут просто теряются.",
+    {"anchor": "intro", "text": "А если руки заняты — за рулём или в работе — эти десять минут просто теряются.",
      "en": "But when your hands are busy — driving or working — those ten minutes are simply lost."},
-    {"at": "00:22", "text": "Я собрал агента, которому не нужен интерфейс. Только голос: отправляю "
-                           "голосовое сообщение в Telegram — дальше он делает всё сам.",
+    {"anchor": "intro", "text": "Я собрал агента, которому не нужен интерфейс. Только голос: отправляю "
+                                 "голосовое сообщение в Telegram — дальше он делает всё сам.",
      "en": "So I built an agent that needs no interface — just your voice. I send a voice "
            "message to Telegram and it does the rest."},
-    {"at": "00:32", "text": "Смотрите.",
+    {"anchor": "intro", "text": "Смотрите.",
      "en": "Let me show you."},
-    {"at": "00:45", "text": "Спрашиваю голосом: что с биткоином на четырёхчасовом? AssemblyAI "
-                           "превращает запись в текст — устойчиво к терминам вроде RSI и Боллинджера.",
-     "en": "I ask by voice: what is Bitcoin doing on the four-hour chart? AssemblyAI turns the "
-           "recording into text, reliably handling terms like RSI and Bollinger Bands."},
-    {"at": "01:06", "text": "Ответ приходит голосом — слушать можно, не глядя в экран. "
-                           "И текстом, чтобы можно было перечитать.",
-     "en": "The answer comes back as voice — listen without looking at the screen — "
-           "and as text you can re-read."},
-    {"at": "01:21", "text": "Прошу дневной график эфира. Я не подсказываю, какой инструмент вызвать — "
-                           "это решает сама модель.",
-     "en": "Now I ask for a daily Ether chart. I am not telling it which tool to call — "
-           "the model decides."},
-    {"at": "01:30", "text": "Свечи, SMA20, линии Боллинджера и панель RSI. "
-                           "График построен прямо в момент запроса.",
-     "en": "Candles, SMA20, Bollinger Bands and an RSI panel — built on demand."},
-    {"at": "01:55", "text": "Под капотом — AssemblyAI для речи, языковая модель с вызовами "
-                           "инструментов и Telegram как интерфейс.",
+    {"anchor": "q1", "text": "Спрашиваю голосом: что с биткоином на четырёхчасовом?",
+     "en": "I ask by voice: what is Bitcoin doing on the four-hour chart?"},
+    {"anchor": "q1", "text": "AssemblyAI превращает запись в текст — с терминами вроде RSI "
+                             "и полос Боллинджера.",
+     "en": "AssemblyAI turns the recording into text — handling terms like RSI and "
+           "Bollinger Bands."},
+    {"anchor": "a1", "text": "Ответ приходит голосом — слушать можно, не глядя в экран.",
+     "en": "The answer comes back as voice — listen without looking at the screen."},
+    {"anchor": "a1", "text": "Под голосовым — та же мысль цифрами: цена, средняя за двадцать свечей, "
+                             "RSI, границы полос Боллинджера. Перечитать можно в любой момент.",
+     "en": "Under the voice note — the same answer in numbers: price, the twenty-period average, "
+           "RSI, Bollinger Bands. You can re-read it any time."},
+    {"anchor": "a1", "text": "И главное: я не называл ни одного инструмента. Модель сама решила, "
+                             "что ей нужны цена, объём и индикаторы.",
+     "en": "And the key part: I never named a single tool. The model decided by itself that it "
+           "needed price, volume and indicators."},
+    {"anchor": "a1", "text": "Формат хорош там, где руки заняты: голосовой ответ длится восемь "
+                             "секунд, а не читается глазами двадцать.",
+     "en": "This format works where your hands are busy: a spoken answer takes eight seconds, "
+           "not twenty seconds of reading."},
+    {"anchor": "q2", "text": "Прошу дневной график эфира.",
+     "en": "Now I ask for a daily Ether chart."},
+    {"anchor": "a2", "text": "Свечи, SMA20, линии Боллинджера и панель RSI — график собран "
+                             "в момент запроса, прямо из биржевых свечей.",
+     "en": "Candles, SMA20, Bollinger Bands and an RSI panel — the chart is built on request, "
+           "straight from exchange candles."},
+    {"anchor": "pre_q3", "text": "Под капотом — AssemblyAI для речи, языковая модель с вызовами "
+                                 "инструментов и Telegram как интерфейс.",
      "en": "Under the hood: AssemblyAI for speech, an LLM with tool calling, "
            "and Telegram as the interface."},
-    {"at": "02:10", "text": "И последний вопрос — что по настроению рынка. Индекс страха и "
-                           "жадности — тоже инструмент агента.",
-     "en": "And the last question — how is market sentiment? The Fear and Greed index is "
-           "another tool the agent can call."},
-    {"at": "02:45", "text": "Код открыт, ссылка в описании. Спасибо.",
+    {"anchor": "q3", "text": "И последний вопрос — что по настроению рынка.",
+     "en": "And the last question — how is market sentiment?"},
+    {"anchor": "a3", "text": "Индекс страха и жадности — тоже инструмент агента.",
+     "en": "The Fear and Greed index is another tool the agent can call."},
+    {"anchor": "end", "text": "Код открыт, ссылка в описании. Спасибо.",
      "en": "The code is open source — link in the description. Thank you."},
 ]
 
@@ -120,18 +133,15 @@ def main() -> int:
         synth(cue["text"], voice_id, dest)
         dur = duration(dest)
         total += dur
-        start = seconds(cue["at"])
-        end = start + dur
-        plan.append({"file": dest.name, "start": start, "duration": round(dur, 2),
-                     "text": cue["text"], "en": cue.get("en", "")})
-        print(f"  {cue['at']}  {dur:5.1f}c  →  {end//60:02.0f}:{end%60:04.1f}  {cue['text'][:52]}…")
+        plan.append({"file": dest.name, "start": 0.0, "duration": round(dur, 2),
+                     "text": cue["text"], "en": cue.get("en", ""),
+                     "anchor": cue.get("anchor", "")})
+        print(f"  {cue.get('anchor',''):8} {dur:5.1f}c  {cue['text'][:58]}…")
 
     (OUT_DIR / "plan.json").write_text(
         json.dumps({"voice": args.voice, "model": MODEL, "cues": plan},
                    ensure_ascii=False, indent=2), encoding="utf-8")
-    last = plan[-1]["start"] + plan[-1]["duration"]
-    print(f"\nвсего реплик: {len(plan)}, длительность речи {total:.1f}c, "
-          f"последняя заканчивается на {last//60:.0f}:{last%60:04.1f}")
+    print(f"\nвсего реплик: {len(plan)}, длительность речи {total:.1f}c")
     print(f"план: {OUT_DIR / 'plan.json'}")
     return 0
 
