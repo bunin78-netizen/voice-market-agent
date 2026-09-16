@@ -17,7 +17,27 @@
 set -u
 cd "$(dirname "$0")/.." || exit 1
 
-AREA="${AREA:-1920x1080+1360+0}"
+# AREA=auto — найти окно Telegram и записать именно его
+detect_area() {
+  command -v xwininfo >/dev/null || return 1
+  DISPLAY="${DISPLAY:-:0}" xwininfo -root -tree 2>/dev/null \
+    | grep -i 'telegram' \
+    | sed -n 's/.*)  \([0-9]\{3,\}\)x\([0-9]\{3,\}\)+\([-0-9]\+\)+\([-0-9]\+\)  .*/\1 \2 \3 \4/p' \
+    | awk '{ if ($1*$2 > best) { best=$1*$2; w=$1; h=$2; x=$3; y=$4 } } END { if (best > 100000) printf "%dx%d+%d+%d", w, h, x, y }'
+}
+
+AREA="${AREA:-auto}"
+if [ "$AREA" = "auto" ]; then
+  DETECTED=$(detect_area)
+  if [ -n "$DETECTED" ]; then
+    AREA="$DETECTED"
+    echo "🔎 окно Telegram найдено: $AREA"
+  else
+    AREA="1920x1080+1360+0"
+    echo "⚠️  окно Telegram не найдено — пишу основной монитор: $AREA"
+    echo "   (задай вручную: AREA=1024x1280+3280+0 bash scripts/record_demo.sh)"
+  fi
+fi
 MIC="${MIC:-alsa_output.pci-0000_00_1f.3.analog-stereo.monitor}"
 FPS="${FPS:-25}"
 DURATION="${DURATION:-}"
