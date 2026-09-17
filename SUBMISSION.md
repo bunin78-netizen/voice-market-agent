@@ -19,8 +19,8 @@
 
 - **Репозиторий:** https://github.com/bunin78-netizen/voice-market-agent (публичный, MIT)
 - **Работающий бот:** https://t.me/VoiceMarketAgentBot
-- **Видео-демо:** `~/Videos/voice-market-DEMO.mp4` — 2:46, 1360×692, закадровая озвучка моделью + голос бота из архива, заставка и финальная карточка; английские субтитры — `~/Videos/voice-market-DEMO.en.srt` (тайминги сняты с самого видео; загрузить на YouTube отдельно)
-  (после загрузки на YouTube вписать ссылку здесь)
+- **Субтитры:** `~/Videos/voice-market-DEMO.en.srt` — загрузить в YouTube (Субтитры → English → Загрузить файл)
+- **Видео-демо:** https://youtu.be/dPmGT7n8ua0 — 2:46, 1360×692, закадровая озвучка моделью + голос бота из архива, заставка с аватаром
 - **Страница хакатона:** https://lablab.ai/ai-hackathons/assemblyai-voice-agent-hackathon
 
 ## Что нужно от человека
