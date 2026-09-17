@@ -56,7 +56,7 @@ https://t.me/VoiceMarketAgentBot — send a voice message (Russian or English).
 
 ## Demo Video
 
-_to add: link to the 2–3 minute walkthrough_
+https://youtu.be/ksVNBLllp-w — 2 minutes, English subtitles in the player
 
 ## Public GitHub Repository
 
