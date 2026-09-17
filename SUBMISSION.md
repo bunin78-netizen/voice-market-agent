@@ -53,6 +53,29 @@
 > фиксированный язык распознавания), LLM с function calling, публичный API Binance,
 > ElevenLabs TTS через REST, python-telegram-bot, matplotlib.
 
+
+## Подробное описание проекта (для поля 600–2000 символов)
+
+### Полный вариант (1775 символов)
+
+Voice Market Agent is a voice-first market copilot for Telegram. Market updates normally demand your eyes and your hands: a terminal, a chart, a few indicators. When your hands are busy, those minutes are simply lost. This agent needs only your voice.
+
+You send a voice message. AssemblyAI turns the recording into text - we use the universal-3-5-pro model together with a keyterms_prompt glossary (RSI, Bollinger Bands, timeframe, price, volume), so domain terms are transcribed reliably even in short, quiet clips. The transcript then goes to an LLM with tool calling, which decides for itself which data it needs: current price, SMA20, RSI(14), Bollinger Bands, volume ratio, the market Fear and Greed index, or a freshly rendered candlestick chart.
+
+The answer comes back in two layers: a short spoken summary is synthesised with ElevenLabs and returned as a Telegram voice note, while the numbers and levels arrive as text you can re-read. Nothing is pre-scripted - the model chooses the tools from the wording of the question, so "what is Bitcoin doing today" and "show me a daily Ether chart" take different paths through the same agent.
+
+Under the hood: AssemblyAI for speech recognition, an LLM with function calling for reasoning, the public Binance API for market data, ElevenLabs for speech synthesis, matplotlib for charts and python-telegram-bot as the interface. Telegram was chosen deliberately: it is installed on more than a billion devices, and a voice message is a familiar gesture there.
+
+The project is open source under MIT. Code: https://github.com/bunin78-netizen/voice-market-agent. The working bot is @VoiceMarketAgentBot, and the demo video shows a complete conversation: three spoken questions, three spoken answers, two freshly generated charts.
+
+### Короткий вариант (1005 символов)
+
+Voice Market Agent is a voice-first market copilot for Telegram. Market updates usually demand your eyes and hands: a terminal, a chart, a few indicators. This agent needs only your voice.
+
+Send a voice message - AssemblyAI transcribes it (universal-3-5-pro plus a keyterms_prompt glossary for RSI, Bollinger Bands and timeframes), then an LLM with tool calling decides which data it needs: price, SMA20, RSI(14), Bollinger Bands, volume, the Fear and Greed index, or a freshly built candlestick chart. Nothing is pre-scripted: "what is Bitcoin doing today" and "show me a daily Ether chart" take different paths through the same agent.
+
+The reply comes in two layers: a short spoken summary synthesised with ElevenLabs as a Telegram voice note, and the numbers as text you can re-read. The stack is AssemblyAI, an LLM with function calling, the public Binance API, ElevenLabs and python-telegram-bot. Open source under MIT: https://github.com/bunin78-netizen/voice-market-agent, bot @VoiceMarketAgentBot.
+
 ## Риски
 
 | Риск | Что делаем |
