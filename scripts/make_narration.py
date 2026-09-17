@@ -30,50 +30,29 @@ from src.tts import VOICE_IDS  # noqa: E402
 CUES: list[dict] = [
     {"anchor": "intro", "text": "Рыночную сводку обычно смотрят глазами: терминал, график, индикаторы.",
      "en": "Market updates usually mean staring at a terminal, a chart, a few indicators."},
-    {"anchor": "intro", "text": "А если руки заняты — за рулём или в работе — эти десять минут просто теряются.",
-     "en": "But when your hands are busy — driving or working — those ten minutes are simply lost."},
-    {"anchor": "intro", "text": "Я собрал агента, которому не нужен интерфейс. Только голос: отправляю "
-                                 "голосовое сообщение в Telegram — дальше он делает всё сам.",
-     "en": "So I built an agent that needs no interface — just your voice. I send a voice "
-           "message to Telegram and it does the rest."},
-    {"anchor": "intro", "text": "Смотрите.",
-     "en": "Let me show you."},
-    {"anchor": "q1", "text": "Спрашиваю голосом: что с биткоином сегодня?",
-     "en": "I ask by voice: what is Bitcoin doing today?"},
-    {"anchor": "q1", "text": "AssemblyAI превращает запись в текст — с терминами вроде RSI "
-                             "и полос Боллинджера.",
-     "en": "AssemblyAI turns the recording into text — handling terms like RSI and "
-           "Bollinger Bands."},
-    {"anchor": "a1", "text": "Ответ приходит голосом — слушать можно, не глядя в экран.",
-     "en": "The answer comes back as voice — listen without looking at the screen."},
-    {"anchor": "a1", "text": "Под голосовым — та же мысль цифрами: цена, средняя за двадцать свечей, "
-                             "RSI, границы полос Боллинджера. Перечитать можно в любой момент.",
-     "en": "Under the voice note — the same answer in numbers: price, the twenty-period average, "
-           "RSI, Bollinger Bands. You can re-read it any time."},
-    {"anchor": "a1", "text": "И главное: я не называл ни одного инструмента. Модель сама решила, "
-                             "что ей нужны цена, объём и индикаторы.",
-     "en": "And the key part: I never named a single tool. The model decided by itself that it "
-           "needed price, volume and indicators."},
-    {"anchor": "a1", "text": "Формат хорош там, где руки заняты: голосовой ответ длится восемь "
-                             "секунд, а не читается глазами двадцать.",
-     "en": "This format works where your hands are busy: a spoken answer takes eight seconds, "
-           "not twenty seconds of reading."},
-    {"anchor": "q2", "text": "Прошу дневной график эфира.",
-     "en": "Now I ask for a daily Ether chart."},
-    {"anchor": "a2", "text": "Свечи, SMA20, линии Боллинджера и панель RSI — график собран "
-                             "в момент запроса, прямо из биржевых свечей.",
-     "en": "Candles, SMA20, Bollinger Bands and an RSI panel — the chart is built on request, "
-           "straight from exchange candles."},
-    {"anchor": "pre_q3", "text": "Под капотом — AssemblyAI для речи, языковая модель с вызовами "
-                                 "инструментов и Telegram как интерфейс.",
-     "en": "Under the hood: AssemblyAI for speech, an LLM with tool calling, "
+    {"anchor": "intro", "text": "Агенту достаточно голоса: отправляю голосовое сообщение в Telegram — "
+                                 "дальше он делает всё сам.",
+     "en": "This agent needs only your voice: I send a voice message to Telegram and it does the rest."},
+    {"anchor": "q1", "text": "Спрашиваю: что с биткоином сегодня?",
+     "en": "I ask: what is Bitcoin doing today?"},
+    {"anchor": "a1", "text": "Ответ голосом, цифры текстом — и график, построенный в момент запроса.",
+     "en": "A spoken answer, the numbers in writing, and a chart built on the spot."},
+    {"anchor": "q2", "text": "Теперь про Solana: как дела в сети?",
+     "en": "Now Solana: how is the network doing?"},
+    {"anchor": "a2", "text": "Агент сам обратился к блокчейну через публичный RPC: слот, эпоха, "
+                             "скорость сети — всё из первых рук.",
+     "en": "The agent queries the blockchain itself over a public RPC: slot, epoch and "
+           "network throughput, straight from the source."},
+    {"anchor": "pre_q3", "text": "Под капотом — AssemblyAI для распознавания речи, языковая модель "
+                                 "с вызовами инструментов и Telegram как интерфейс.",
+     "en": "Under the hood: AssemblyAI for speech recognition, an LLM with tool calling, "
            "and Telegram as the interface."},
-    {"anchor": "q3", "text": "И последний вопрос — что по настроению рынка.",
-     "en": "And the last question — how is market sentiment?"},
-    {"anchor": "a3", "text": "Индекс страха и жадности — тоже инструмент агента.",
-     "en": "The Fear and Greed index is another tool the agent can call."},
-    {"anchor": "end", "text": "Код открыт, ссылка в описании. Спасибо.",
-     "en": "The code is open source — link in the description. Thank you."},
+    {"anchor": "q3", "text": "И последний вопрос — сколько SOL на кошельке.",
+     "en": "And the last question: how much SOL is in the wallet."},
+    {"anchor": "a3", "text": "Баланс прочитан прямо из блокчейна — без ключей и посредников.",
+     "en": "The balance is read straight from the blockchain, with no keys and no middlemen."},
+    {"anchor": "end", "text": "Код открыт, ссылка в описании.",
+     "en": "The code is open source — link in the description."},
 ]
 
 OUT_DIR = ROOT / "tmp" / "narration"
