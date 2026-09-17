@@ -40,7 +40,7 @@ if [ "$AREA" = "auto" ]; then
 fi
 MIC="${MIC:-alsa_output.pci-0000_00_1f.3.analog-stereo.monitor}"
 FPS="${FPS:-25}"
-CRF="${CRF:-20}"   # ниже = чётче текст (18-20 для интерфейсов)
+CRF="${CRF:-16}"   # ниже = чётче текст: 16 для интерфейсов, 14 если нужен максимум
 DURATION="${DURATION:-}"
 OUT_DIR="${OUT_DIR:-$HOME/Videos}"
 mkdir -p "$OUT_DIR"
