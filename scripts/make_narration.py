@@ -38,8 +38,8 @@ CUES: list[dict] = [
            "message to Telegram and it does the rest."},
     {"anchor": "intro", "text": "Смотрите.",
      "en": "Let me show you."},
-    {"anchor": "q1", "text": "Спрашиваю голосом: что с биткоином на четырёхчасовом?",
-     "en": "I ask by voice: what is Bitcoin doing on the four-hour chart?"},
+    {"anchor": "q1", "text": "Спрашиваю голосом: что с биткоином сегодня?",
+     "en": "I ask by voice: what is Bitcoin doing today?"},
     {"anchor": "q1", "text": "AssemblyAI превращает запись в текст — с терминами вроде RSI "
                              "и полос Боллинджера.",
      "en": "AssemblyAI turns the recording into text — handling terms like RSI and "
