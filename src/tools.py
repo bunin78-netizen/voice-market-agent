@@ -89,6 +89,14 @@ TOOL_SCHEMAS = [
     {
         "type": "function",
         "function": {
+            "name": "get_my_sol_balance",
+            "description": "Баланс SOL на кошельке пользователя по умолчанию. Вызывай, когда спрашивают «мой кошелёк» без адреса.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_solana_activity",
             "description": "Последние транзакции кошелька Solana: сколько успешных и неудачных, слот самой свежей.",
             "parameters": {
@@ -132,6 +140,13 @@ def execute(name: str, args: dict) -> str:
 
         if name == "get_solana_network":
             return json.dumps(solana.network_status().as_text(), ensure_ascii=False)
+
+        if name == "get_my_sol_balance":
+            from .config import SOLANA_WALLET as _w
+            if not _w:
+                return json.dumps({"error": "адрес кошелька по умолчанию не задан — попроси пользователя назвать адрес"},
+                                  ensure_ascii=False)
+            return json.dumps(solana.balance(_w).as_text(), ensure_ascii=False)
 
         if name == "get_sol_balance":
             info = solana.balance(args.get("address", ""))

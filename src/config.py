@@ -37,6 +37,7 @@ STT_KEYTERMS = [w.strip() for w in env(
     "эфир,биткоин,солана,график,таймфрейм,дневной график,RSI,полосы Боллинджера,"
     "индекс страха и жадности,цена,объём").split(",") if w.strip()]
 DEFAULT_INTERVAL = env("DEFAULT_INTERVAL", "1h")
+SOLANA_WALLET = env("SOLANA_WALLET", "")   # адрес по умолчанию для вопроса «мой кошелёк»
 
 TMP_DIR = ROOT / "tmp"
 TMP_DIR.mkdir(exist_ok=True)
