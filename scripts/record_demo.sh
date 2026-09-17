@@ -32,6 +32,11 @@ if [ "$AREA" = "auto" ]; then
   if [ -n "$DETECTED" ]; then
     AREA="$DETECTED"
     echo "🔎 окно Telegram найдено: $AREA"
+    HGT=$(echo "$AREA" | sed 's/x[0-9]*+/x/; s/x\([0-9]*\).*/\1/')
+    if [ "${HGT:-0}" -lt 900 ]; then
+      echo "⚠️  окно ниже 1080p — на YouTube текст будет мягче."
+      echo "   Перетащи окно Telegram на монитор 1920x1080 и разверни его — тогда запись будет резкой."
+    fi
   else
     AREA="1920x1080+1360+0"
     echo "⚠️  окно Telegram не найдено — пишу основной монитор: $AREA"
