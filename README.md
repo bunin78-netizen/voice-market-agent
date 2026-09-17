@@ -83,6 +83,7 @@ python scripts/smoke_test.py        # прогон всего пайплайна
 | `src/llm.py` | вызов LLM с tool calling (DeepSeek / OpenRouter, OpenAI-совместимый) |
 | `src/market.py` | публичные данные Binance + индикаторы (RSI, SMA, BB) + Fear & Greed |
 | `src/chart.py` | свечной график с SMA/BB и панелью RSI (matplotlib) |
+| `src/solana.py` | Solana: публичный JSON-RPC — сеть, баланс кошелька, транзакции |
 | `src/tools.py` | схемы инструментов и их исполнение |
 | `src/agent.py` | цикл «вопрос → инструменты → ответ» |
 | `src/bot.py` | Telegram-бот: голос/текст → ответ голосом/текстом |

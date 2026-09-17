@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import market
+from . import market, solana
 from .chart import make_chart
 
 TOOL_SCHEMAS = [
@@ -66,6 +66,41 @@ TOOL_SCHEMAS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_solana_network",
+            "description": "Состояние сети Solana: версия узла, текущий слот и эпоха, пропускная способность, среднее время слота.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_sol_balance",
+            "description": "Баланс кошелька Solana в SOL по его адресу (base58).",
+            "parameters": {
+                "type": "object",
+                "properties": {"address": {"type": "string", "description": "Адрес кошелька Solana"}},
+                "required": ["address"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_solana_activity",
+            "description": "Последние транзакции кошелька Solana: сколько успешных и неудачных, слот самой свежей.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "address": {"type": "string"},
+                    "limit": {"type": "integer", "description": "Сколько транзакций проверить, 1–20"},
+                },
+                "required": ["address"],
+            },
+        },
+    },
 ]
 
 # какие файлы-артефакты вернул вызов (графики)
@@ -94,6 +129,18 @@ def execute(name: str, args: dict) -> str:
             path = make_chart(ind)
             ARTIFACTS.append(path)
             return json.dumps({"chart": str(path), "summary": ind.as_text()}, ensure_ascii=False)
+
+        if name == "get_solana_network":
+            return json.dumps(solana.network_status().as_text(), ensure_ascii=False)
+
+        if name == "get_sol_balance":
+            info = solana.balance(args.get("address", ""))
+            return json.dumps(info.as_text(), ensure_ascii=False)
+
+        if name == "get_solana_activity":
+            return json.dumps(
+                solana.activity_text(args.get("address", ""), args.get("limit", 5)),
+                ensure_ascii=False)
 
         return json.dumps({"error": f"неизвестный инструмент {name}"}, ensure_ascii=False)
     except Exception as e:  # noqa: BLE001 — ошибку возвращаем модели, она объяснит пользователю
