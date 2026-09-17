@@ -48,24 +48,16 @@ def upload(path: str | Path) -> str:
     return r.json()["upload_url"]
 
 
-def transcribe_assemblyai(
-    path: str | Path,
-    language: str | None = None,
-    poll_interval: float = 1.5,
-    timeout: float = 180.0,
-) -> Transcript:
-    """Файловое распознавание. language=None → авто-детект языка."""
-    audio_url = upload(path)
+def _submit_and_wait(audio_url: str, language: str | None,
+                     poll_interval: float, timeout: float) -> Transcript:
     payload: dict = {
         "audio_url": audio_url,
-        # API v2 принимает список моделей в порядке приоритета (старое поле speech_model удалено)
         "speech_models": ["universal-3-5-pro", "universal-2"],
         "punctuate": True,
         "format_text": True,
     }
-    lang = language or config.STT_LANGUAGE
-    if lang:
-        payload["language_code"] = lang
+    if language:
+        payload["language_code"] = language
     else:
         payload["language_detection"] = True
     if config.STT_KEYTERMS:
@@ -75,8 +67,7 @@ def transcribe_assemblyai(
     r = requests.post(f"{AAI_BASE}/transcript", headers=_aai_headers(), json=payload, timeout=60)
     if r.status_code >= 300:
         raise STTError(f"transcript {r.status_code}: {r.text[:300]}")
-    job = r.json()
-    job_id = job["id"]
+    job_id = r.json()["id"]
 
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -94,8 +85,31 @@ def transcribe_assemblyai(
         if status == "error":
             raise STTError(f"AssemblyAI error: {data.get('error')}")
         time.sleep(poll_interval)
-
     raise STTError(f"таймаут распознавания ({timeout:.0f}s), job={job_id}")
+
+
+def transcribe_assemblyai(
+    path: str | Path,
+    language: str | None = None,
+    poll_interval: float = 1.5,
+    timeout: float = 180.0,
+) -> Transcript:
+    """Файловое распознавание.
+
+    language=None → авто-определение языка. Если оно ушло в третий язык (на коротких
+    голосовых это случается), повторяем запрос с зафиксированным русским.
+    """
+    audio_url = upload(path)
+    pinned = language or config.STT_LANGUAGE
+    first = _submit_and_wait(audio_url, pinned, poll_interval, timeout)
+    if pinned:
+        return first
+    if first.text and first.language in ("ru", "en"):
+        return first
+    try:
+        return _submit_and_wait(audio_url, "ru", poll_interval, timeout)
+    except STTError:
+        return first
 
 
 # ------------------------------------------------------------------ whisper (dev)

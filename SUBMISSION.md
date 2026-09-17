@@ -84,3 +84,13 @@ The reply comes in two layers: a short spoken summary synthesised with ElevenLab
 | Ключ приходит с задержкой | пайплайн уже работает на локальном whisper, запись демо возможна без AssemblyAI, но в видео озвучиваем именно AssemblyAI-путь |
 | Разговорный ответ длиннее 900 символов | `tts.synthesize` обрезает текст до первого пробела перед лимитом |
 | Тяжёлый запрос тормозит ответ | `MAX_STEPS=5` в `agent.py`, инструменты синхронные и быстрые |
+
+## После отправки
+
+- **Бот должен оставаться живым** — судьи могут его проверить. Сторож в crontab (каждые 5 минут):
+  ```
+  */5 * * * * pgrep -f 'python3 -m src[.]bot' >/dev/null || (cd /home/cryptos/.openclaw/workspace/projects/voice-market-agent && bash scripts/restart_bot.sh >/dev/null 2>&1)
+  ```
+- **Язык ответа** — агент отвечает на языке вопроса: авто-определение языка с откатом на русский,
+  если распознавание ушло в третий язык. Английский вопрос → английский ответ.
+- Если бот молчит: `bash scripts/restart_bot.sh` и посмотреть `tmp/bot.log`.
