@@ -51,9 +51,17 @@ def start_marker(video: Path) -> float | None:
     return None
 
 
-def align_cues(cues: list[dict], events: list[tuple[str, float]],
-               zero: float, video_dur: float) -> list[dict]:
-    """Расставляет реплики по фактическим событиям бота (а не по секундомеру)."""
+def align_cues(cues: list[dict], events: list[tuple[str, float]], zero: float,
+               video_dur: float, spoken: list[tuple[float, float]] | None = None) -> list[dict]:
+    """Раскладка реплик по событиям.
+
+    Порядок приоритетов:
+      1. вступление — перед первым вопросом;
+      2. реплики-вопросы (q1/q2/q3) — ровно в момент отправки, иначе диктор
+         спрашивает позже, чем пользователь реально это сделал;
+      3. остальные реплики — по порядку, в свободные окна между голосом бота и вопросами.
+    """
+    spoken = spoken or []
     ins = [t - zero for kind, t in events if kind == "voice_in"]
     outs = [t - zero for kind, t in events if kind == "reply_out"]
     if not ins:
@@ -78,6 +86,7 @@ def align_cues(cues: list[dict], events: list[tuple[str, float]],
             return outs[-1] + 0.6
         return None
 
+    # 1) вступление
     intro = [c for c in cues if c.get("anchor") == "intro"]
     total_intro = sum(c["duration"] for c in intro) + 0.6 * max(0, len(intro) - 1)
     cursor = max(2.0, ins[0] - total_intro - 1.0)
@@ -85,14 +94,38 @@ def align_cues(cues: list[dict], events: list[tuple[str, float]],
         c["start"] = round(cursor, 2)
         cursor += c["duration"] + 0.6
 
+    # 2) вопросы — по факту отправки
+    question_anchors = {"q1": 0, "q2": 1, "q3": 2}
+    busy: list[tuple[float, float]] = list(spoken)
+    for cue in cues:
+        idx = question_anchors.get(cue.get("anchor", ""))
+        if idx is None or idx >= len(ins):
+            continue
+        cue["start"] = round(ins[idx] + 0.6, 2)
+        busy.append((cue["start"], cue["start"] + cue["duration"]))
+
+    def free_from(t: float, dur: float) -> float:
+        """Сдвигаем вправо, пока интервал пересекается с голосом бота или чужими репликами."""
+        moved = True
+        while moved:
+            moved = False
+            for s, e in busy:
+                if t < e and t + dur > s:
+                    t = e + 0.3
+                    moved = True
+        return t
+
+    # 3) остальные — по порядку в свободные окна
     prev_end = max((c["start"] + c["duration"] for c in intro), default=0.0)
     for cue in cues:
-        if cue.get("anchor") == "intro":
+        if cue.get("anchor") in ("intro",) or cue.get("anchor") in question_anchors:
             continue
         t0 = anchor_time(cue.get("anchor", ""), cue)
         if t0 is None:
             t0 = prev_end + 0.4
-        cue["start"] = round(max(t0, prev_end + 0.4), 2)
+        t = max(t0, prev_end + 0.4)
+        t = free_from(t, cue["duration"])
+        cue["start"] = round(t, 2)
         prev_end = cue["start"] + cue["duration"]
     return cues
 
@@ -324,9 +357,15 @@ def main() -> int:
         for f, off in bot_voice:
             print(f"   {int(off)//60:02d}:{off%60:05.2f}  {f.name}")
 
+    spoken_spans = []
+    for f, off in bot_voice:
+        d = duration(f)
+        if d > 0:
+            spoken_spans.append((off, off + d))
+
     if args.events_file and events_override:
         # в файле событий время уже относительно старта записи — zero не вычитаем
-        cues = align_cues(cues, events_override, 0.0, duration(video))
+        cues = align_cues(cues, events_override, 0.0, duration(video), spoken_spans)
         print("🎯 реплики привязаны к событиям (из файла):")
         for c in cues:
             print(f"   {int(c['start'])//60:02d}:{c['start']%60:05.2f}  {c['text'][:48]}…")
@@ -340,7 +379,7 @@ def main() -> int:
         else:
             events = parse_events(log_path)
             fresh = [(k, tt) for k, tt in events if tt >= zero - 1]
-            cues = align_cues(cues, fresh, zero, duration(video))
+            cues = align_cues(cues, fresh, zero, duration(video), spoken_spans)
             print("🎯 реплики привязаны к событиям бота:")
             for c in cues:
                 print(f"   {int(c['start'])//60:02d}:{c['start']%60:05.2f}  {c['text'][:48]}…")
@@ -348,11 +387,6 @@ def main() -> int:
     out = Path(args.out).expanduser() if args.out else video.with_name(video.stem + "-final.mp4")
     vid_dur = duration(video)
     # после выравнивания разводим закадровый текст с голосом бота
-    spoken_spans = []
-    for f, off in bot_voice:
-        d = duration(f)
-        if d > 0:
-            spoken_spans.append((off, off + d))
     # сколько времени нужно: текст + голос бота + финальная реплика ПОСЛЕ последнего ответа
     voice_end = max((e for _, e in spoken_spans), default=0.0)
     tail_dur = max((c["duration"] for c in cues if c.get("anchor") == "end"), default=0.0)

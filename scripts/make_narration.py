@@ -27,6 +27,8 @@ from src.tts import VOICE_IDS  # noqa: E402
 # Реплики закадрового голоса: (момент в видео, секунда, текст)
 # anchor — к какому событию привязывать реплику:
 #   intro | q1 | a1 | q2 | a2 | pre_q3 | q3 | a3 | end
+# Порядок реплик важен: сборщик ставит их по очереди, поэтому «под капотом»
+# идёт до вопросов, иначе хвост уезжает — вопрос про кошелёк звучал позже, чем задан.
 CUES: list[dict] = [
     {"anchor": "intro", "text": "Рыночную сводку обычно смотрят глазами: терминал, график, индикаторы.",
      "en": "Market updates usually mean staring at a terminal, a chart, a few indicators."},
@@ -37,16 +39,12 @@ CUES: list[dict] = [
      "en": "I ask: what is Bitcoin doing today?"},
     {"anchor": "a1", "text": "Ответ голосом, цифры текстом — и график, построенный в момент запроса.",
      "en": "A spoken answer, the numbers in writing, and a chart built on the spot."},
-    {"anchor": "q2", "text": "Теперь про Solana: как дела в сети?",
-     "en": "Now Solana: how is the network doing?"},
-    {"anchor": "a2", "text": "Агент сам обратился к блокчейну через публичный RPC: слот, эпоха, "
-                             "скорость сети — всё из первых рук.",
-     "en": "The agent queries the blockchain itself over a public RPC: slot, epoch and "
-           "network throughput, straight from the source."},
-    {"anchor": "pre_q3", "text": "Под капотом — AssemblyAI для распознавания речи, языковая модель "
+    {"anchor": "a1", "text": "Под капотом — AssemblyAI для распознавания речи, языковая модель "
                                  "с вызовами инструментов и Telegram как интерфейс.",
      "en": "Under the hood: AssemblyAI for speech recognition, an LLM with tool calling, "
            "and Telegram as the interface."},
+    {"anchor": "q2", "text": "Теперь про Solana: как дела в сети?",
+     "en": "Now Solana: how is the network doing?"},
     {"anchor": "q3", "text": "И последний вопрос — сколько SOL на кошельке.",
      "en": "And the last question: how much SOL is in the wallet."},
     {"anchor": "a3", "text": "Баланс прочитан прямо из блокчейна — без ключей и посредников.",
