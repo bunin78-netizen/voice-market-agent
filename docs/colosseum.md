@@ -75,6 +75,14 @@ Viacheslav — solo founder and developer. Backend and bots in Python, trading s
 Telegram services; the whole product — speech pipeline, tool calling, voice synthesis and
 the demo pipeline — built and shipped by one person.
 
+## What the agent can do on Solana
+
+* read: network state, wallet balance, SPL token balances, transaction history;
+* request: a Solana Pay payment link with a QR code — the payer signs in their own wallet;
+* quote: swap rates across Jupiter routes with price impact, execution stays in the user's wallet.
+
+No private keys are held anywhere: the agent never signs and never custodies funds.
+
 ## Roadmap
 
 * streaming recognition for lower latency;
